@@ -1,0 +1,39 @@
+#!/bin/sh
+# libfossil pre-commit hook
+# Runs tests with both SQLite drivers + DST + OTel sub-module (~45s) before every commit.
+#
+# Install: git config core.hooksPath .githooks
+# Skip:    git commit --no-verify (emergency only)
+
+set -e
+
+run_test() {
+	label="$1"
+	shift
+	if output=$("$@" 2>&1); then
+		echo "  $label: OK"
+	else
+		echo "  $label: FAILED"
+		echo ""
+		echo "$output"
+		echo ""
+		exit 1
+	fi
+}
+
+echo "=== pre-commit: modernc (default) ==="
+run_test "unit tests" go test ./... -short -count=1 -timeout=120s
+
+echo "=== pre-commit: ncruces ==="
+run_test "unit tests (ncruces)" go test -tags test_ncruces ./... -short -count=1 -timeout=120s
+
+echo "=== pre-commit: vet ==="
+run_test "go vet" go vet ./...
+
+echo "=== pre-commit: observer/otel ==="
+run_test "otel sub-module" sh -c "cd observer/otel && GOWORK=off go test ./... -short -count=1 -timeout=30s"
+
+echo "=== pre-commit: build libfossil binary ==="
+run_test "cmd/libfossil" go build ./cmd/libfossil/
+
+echo "=== pre-commit: all passed ==="

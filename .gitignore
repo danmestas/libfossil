@@ -1,0 +1,22 @@
+# Compiled binaries
+/libfossil
+/fossil
+
+# Test artifacts
+*.test
+*.out
+coverage.*
+
+# Local editor/IDE state
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Temporary Fossil checkouts used during tests
+*.fossil-journal
+*.fossil-wal
