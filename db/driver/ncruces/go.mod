@@ -3,7 +3,7 @@ module github.com/danmestas/libfossil/db/driver/ncruces
 go 1.26.0
 
 require (
-	github.com/danmestas/libfossil v0.2.4
+	github.com/danmestas/libfossil v0.1.0
 	github.com/danmestas/go-sqlite3-opfs v0.2.0
 	github.com/ncruces/go-sqlite3 v0.33.0
 )
@@ -14,4 +14,3 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 )
 
-replace github.com/danmestas/libfossil => ../../..

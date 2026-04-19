@@ -3,7 +3,7 @@ module github.com/danmestas/libfossil/db/driver/modernc
 go 1.26.0
 
 require (
-	github.com/danmestas/libfossil v0.2.4
+	github.com/danmestas/libfossil v0.1.0
 	modernc.org/sqlite v1.46.1
 )
 
@@ -21,4 +21,3 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace github.com/danmestas/libfossil => ../../..

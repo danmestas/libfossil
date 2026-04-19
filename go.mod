@@ -4,15 +4,10 @@ go 1.26.0
 
 require (
 	github.com/alecthomas/kong v1.15.0
-	github.com/danmestas/libfossil/db/driver/modernc v0.2.4
-	github.com/danmestas/libfossil/db/driver/ncruces v0.2.4
+	github.com/danmestas/libfossil/db/driver/modernc v0.1.0
+	github.com/danmestas/libfossil/db/driver/ncruces v0.1.0
 	github.com/hexops/gotextdiff v1.0.3
 	golang.org/x/crypto v0.49.0
-)
-
-replace (
-	github.com/danmestas/libfossil/db/driver/modernc => ./db/driver/modernc
-	github.com/danmestas/libfossil/db/driver/ncruces => ./db/driver/ncruces
 )
 
 require (
