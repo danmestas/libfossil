@@ -20,3 +20,4 @@ Thumbs.db
 # Temporary Fossil checkouts used during tests
 *.fossil-journal
 *.fossil-wal
+*.fossil-shm

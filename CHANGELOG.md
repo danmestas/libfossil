@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - Unreleased
+## [Unreleased]
+
+## [0.1.0] - 2026-04-20
 
 Initial open-source release of `libfossil`, a pure-Go implementation of the
 Fossil SCM that reads and writes the same `.fossil` SQLite repository format.
@@ -28,12 +30,3 @@ Fossil SCM that reads and writes the same `.fossil` SQLite repository format.
 - OpenTelemetry observer provided as a separate submodule to keep the core
   dependency footprint small.
 - `wasip1/wasm` build target for running `libfossil` under WASI runtimes.
-
-### Notes
-
-- When migrating from a private `go-libfossil` checkout, two artifacts were
-  renamed:
-  - The committed merge-state file `.edgesync-merge` is now `.libfossil-merge`.
-  - The internal SQLite `config` table key prefix `edgesync-ci-lock-` is now
-    `libfossil-ci-lock-`. This is not user-visible but is part of the
-    on-disk repo state.
