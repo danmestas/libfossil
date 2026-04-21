@@ -5,7 +5,11 @@ import (
 	"time"
 
 	"github.com/danmestas/libfossil/internal/annotate"
+	"github.com/danmestas/libfossil/internal/blob"
+	"github.com/danmestas/libfossil/internal/content"
+	"github.com/danmestas/libfossil/internal/diff"
 	"github.com/danmestas/libfossil/internal/fsltype"
+	"github.com/danmestas/libfossil/internal/manifest"
 )
 
 // LogOpts configures a log/timeline query.
@@ -75,8 +79,51 @@ func (r *Repo) Annotate(opts AnnotateOpts) ([]AnnotatedLine, error) {
 	return result, nil
 }
 
-// Diff returns a unified diff for a file between two checkins.
-// TODO: wire to internal diff package when available.
+// Diff returns a unified diff for filePath between two checkins.
+// When the file is absent from a side, that side is treated as empty
+// bytes, so additions and deletions render as pure insert/delete hunks.
+// Returns an empty slice when both sides are byte-identical.
 func (r *Repo) Diff(ridA, ridB int64, filePath string) ([]DiffEntry, error) {
-	return nil, fmt.Errorf("libfossil: diff: not yet implemented")
+	if filePath == "" {
+		return nil, fmt.Errorf("libfossil: diff: filePath is required")
+	}
+	a, err := blobAt(r, ridA, filePath)
+	if err != nil {
+		return nil, fmt.Errorf("libfossil: diff: checkin %d: %w", ridA, err)
+	}
+	b, err := blobAt(r, ridB, filePath)
+	if err != nil {
+		return nil, fmt.Errorf("libfossil: diff: checkin %d: %w", ridB, err)
+	}
+	unified := diff.Unified(a, b, diff.Options{
+		ContextLines: 3,
+		SrcName:      "a/" + filePath,
+		DstName:      "b/" + filePath,
+	})
+	if unified == "" {
+		return []DiffEntry{}, nil
+	}
+	return []DiffEntry{{Name: filePath, Unified: unified}}, nil
+}
+
+// blobAt returns the bytes of filePath as they exist in the given checkin.
+// A checkin that does not contain filePath returns (nil, nil); callers treat
+// that as "empty side" for diff purposes. Errors surface only for real I/O
+// or consistency problems (unknown RID, missing blob for a listed UUID).
+func blobAt(r *Repo, checkinRID int64, filePath string) ([]byte, error) {
+	files, err := manifest.ListFiles(r.inner, fsltype.FslID(checkinRID))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		if f.Name != filePath {
+			continue
+		}
+		rid, ok := blob.Exists(r.DB(), f.UUID)
+		if !ok {
+			return nil, fmt.Errorf("blob not found for uuid %s", f.UUID)
+		}
+		return content.Expand(r.DB(), rid)
+	}
+	return nil, nil
 }
