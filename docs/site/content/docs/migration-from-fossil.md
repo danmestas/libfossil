@@ -1,3 +1,8 @@
+---
+title: Migration from Fossil
+weight: 30
+---
+
 # Migration from upstream Fossil
 
 This guide is for users of upstream [Fossil SCM](https://fossil-scm.org) (the C

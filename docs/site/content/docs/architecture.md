@@ -1,3 +1,8 @@
+---
+title: Architecture
+weight: 20
+---
+
 # libfossil architecture
 
 ## Overview
