@@ -339,9 +339,6 @@ func (h *handler) handleIGot(c *xfer.IGotCard) error {
 	if c == nil {
 		panic("handler.handleIGot: c must not be nil")
 	}
-	if !h.pullOK {
-		return nil
-	}
 	_, exists := blob.Exists(h.repo.DB(), c.UUID)
 	if exists {
 		// Record that the client has this blob so emitIGots can skip it.
@@ -350,6 +347,18 @@ func (h *handler) handleIGot(c *xfer.IGotCard) error {
 			h.remoteHas = make(map[string]remoteHasEntry)
 		}
 		h.remoteHas[c.UUID] = remoteHasEntry{isPrivate: c.IsPrivate}
+		return nil
+	}
+	// Server requests the missing blob whenever either side has expressed
+	// interest in transferring data. Pre-fix this gate was just !pullOK,
+	// which silently dropped server gimmes when a client called
+	// SyncOpts{Push:true, Pull:false}: the client emits igot cards from
+	// sendUnclustered every round regardless of Pull, so the server
+	// would see the announcements but never request the blobs and the
+	// loop would converge with the server holding only what the client
+	// pushed proactively. Mirrors fossil-scm/c xfer.c, which generates
+	// gimmes from igot cards as long as either direction is active.
+	if !h.pushOK && !h.pullOK {
 		return nil
 	}
 	if c.IsPrivate && !h.syncPrivate {
