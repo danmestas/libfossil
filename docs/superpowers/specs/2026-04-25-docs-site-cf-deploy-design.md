@@ -23,15 +23,14 @@ Add a public web presence for libfossil that mirrors the sibling project [`dagna
 
 ## Visual aesthetic
 
-The dagnats landing page sets the visual vocabulary, and libfossil reuses it verbatim. The look is a technical-manual / spec-sheet aesthetic, not a colored brand palette:
+The dagnats live landing page sets the visual vocabulary, and libfossil reuses it verbatim. The look is a technical-manual / spec-sheet aesthetic — utilitarian, monospace, dual-mode:
 
-- **Background:** near-black (`--ink: #0a0a0b`).
-- **Foreground:** chalk/cream (`--chalk: #e8e6e1`, `--paper: #f5f3ee`).
-- **Body type:** JetBrains Mono (`--mono`) — drives nav, metadata table, code, labels.
-- **Display type:** Instrument Serif italic (`--serif`) — used for the wordmark and section titles.
-- **Accent (visible at the top of the page):** ember orange (`--ember: #ff4f1a`) — install-block `$` prompt, primary CTA hover, italic emphasis in headings, comparison column highlight, link selection, syntax keywords.
-- **Secondary accent (lower on the page):** teal (`--teal: #00d4aa`) — architecture-diagram nodes, "us" column of the problem grid, function-name syntax highlighting, a few feature icons.
-- **Layout idioms:** §01/§02 section numbering, right-aligned section eyebrow labels, hairline rules, dotted-border metadata "spec sheet" table, boxed code blocks with `SHELL`/`COPY` chrome.
+- **Dual-mode** via `prefers-color-scheme` — the page auto-switches between light and dark variants of the same design:
+  - **Light:** paper `#f5f1e6` (warm cream) on ink `#14110b` (warm black).
+  - **Dark:** paper `#15140f` (warm near-black) on ink `#ece8dc` (warm chalk).
+- **Mono only.** Geist Mono via Google Fonts drives every text element — wordmark, body, nav, metadata table, code, labels. There is no serif and no sans. The wordmark is an `<h1>` styled with size and weight in the same Geist Mono.
+- **Single accent:** ember `#c63a0f` (deep red-orange) — used sparingly: install-block `$` prompt, primary CTA hover, copy-button "copied" state, comparison-column highlight, link selection.
+- **Layout idioms:** §NN section numbering with anchor slugs (`§01`, `§02`, …), hairline 1px rules in `--ink`, spec-sheet metadata table with single-line borders, COPY-on-click code blocks, narrow centered measure (`--measure: 76ch`).
 
 Implementation reuses the dagnats CSS and HTML chrome verbatim — only the content underneath changes. The spec does not redefine the visual system.
 
@@ -78,23 +77,22 @@ The four existing files in `docs/` (`architecture.md`, `extension-points.md`, `m
 
 The landing page is a Hugo home-page **layout override** — it replaces Hextra's default home template. Hugo compiles it into `docs/site/public/index.html` during `hugo --minify`, and Cloudflare Workers serves that file at `/`. The site nav and `/docs/...` pages continue to use Hextra layouts unchanged.
 
-Approach: fork dagnats's `docs/site/layouts/index.html` (Hugo layout with embedded CSS and vanilla JS, plus a few Hextra partial calls for `<head>` chrome). Keep all CSS variables, fonts, layout primitives, animations, COPY chrome. Rewrite the textual content for libfossil.
+Approach: fork dagnats's `docs/site/layouts/index.html` — a self-contained HTML file (~21KB) with embedded CSS and vanilla JS and zero Hugo template directives. It lives in `layouts/` only because that is the path Hugo serves at `/`, not because it interpolates Hugo data. Keep all CSS variables, fonts, layout primitives, COPY chrome. Rewrite the textual content for libfossil.
 
-**Section structure (one-to-one with dagnats):**
+**Section structure (one-to-one with the live dagnats landing):**
 
 | § | Section | libfossil content |
 |---|---|---|
-| — | Top nav | left wordmark "LIBFOSSIL"; right `v0.4.1 · license MIT · github · docs` |
-| — | Hero | "libfossil" wordmark in `--serif` italic. Tagline: "A pure-Go library for Fossil SCM repositories. Zero CGo. Static binaries. WASM-ready." |
+| — | Topbar | left wordmark `LIBFOSSIL`; right `v0.4.1 · license MIT · github · docs` |
+| — | Hero | `<h1>libfossil</h1>` (Geist Mono, sized + weighted). Tagline: "A pure-Go library for Fossil SCM repositories. Zero CGo. Static binaries. WASM-ready." |
 | — | Spec-sheet metadata table | rows: PROJECT, LANGUAGE, RUNTIME DEPS, BINARIES, LICENSE, STATUS |
 | §01 | Install | `go install github.com/danmestas/libfossil/cmd/libfossil@latest` plus `libfossil --help` |
 | §02 | What it is | 2 paragraphs — pure-Go reader/writer for `.fossil` SQLite repos; embeddable; WASM target via `GOOS=wasip1` |
-| §03 | What's different | prose contrasting libfossil with shelling out to the upstream `fossil` binary, and with CGo bindings |
-| §04 | Architecture | redrawn diagram for libfossil layers: CLI → Repo → Transport / DB Driver / Observers |
-| §05 | Examples | 2-column code showcase: (left) `Open + Commit + Timeline`; (right) `Sync via HTTP transport with observer` |
-| §06 | Use cases | 4 cards: build/release tooling, code-search indexers, mirror servers, AI-agent code-history readers |
-| §07 | Comparison table | libfossil vs. shell-out vs. CGo bindings; rows: dependencies, static binaries, WASM, observability, embeddability |
-| §08 | CTA | Read the docs · GitHub · Install copy block |
+| §03 | Why you might want it | prose contrasting libfossil with shelling out to the upstream `fossil` binary, and with CGo bindings |
+| §04 | How it fits together *(architecture)* | inline diagram for libfossil layers: CLI → Repo → Transport / DB Driver / Observers |
+| §05 | Compared to neighbors *(comparison)* | short comparison: libfossil vs. shell-out vs. CGo bindings — covering deps, static binaries, WASM, observability, embeddability |
+| §06 | What it is not *(limits)* | scope boundaries — what libfossil deliberately does not do (e.g., GUI, hosting, web UI) |
+| §07 | Get going *(CTA)* | Read the docs · GitHub · Install copy block |
 | — | Footer | license MIT · v0.4.1 · year · repo link |
 
 **Spec-sheet metadata values:**
