@@ -21,3 +21,17 @@ Thumbs.db
 *.fossil-journal
 *.fossil-wal
 *.fossil-shm
+
+# Hugo build artifacts
+docs/site/public/
+docs/site/resources/
+docs/site/.hugo_build.lock
+docs/site/_vendor/
+
+# Generated llms.txt artifacts (built at deploy time, not committed)
+docs/site/static/llms.txt
+docs/site/static/llms-full.txt
+
+# Downloaded Hugo binary (used by CF and local manual builds)
+docs/site/hugo
+hugo
