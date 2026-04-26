@@ -44,44 +44,12 @@ func openInternalRepo(g *Globals) (*repo.Repo, error) {
 
 // resolveRID resolves a version string to a rid.
 // Accepts: empty/"tip" (most recent checkin), "trunk" (tagged trunk tip),
-// UUID prefix (min 4 chars), or full UUID.
+// named branch, UUID prefix (min 4 chars), or full UUID.
+//
+// This is a thin CLI-layer wrapper around Repo.ResolveVersion, which holds
+// the canonical resolution logic.
 func resolveRID(r *libfossil.Repo, version string) (int64, error) {
-	db := r.Inner().DB()
-	switch version {
-	case "", "tip":
-		var rid int64
-		err := db.QueryRow(
-			"SELECT objid FROM event WHERE type='ci' ORDER BY mtime DESC LIMIT 1",
-		).Scan(&rid)
-		if err != nil {
-			return 0, fmt.Errorf("no checkins found")
-		}
-		return rid, nil
-
-	case "trunk":
-		var rid int64
-		err := db.QueryRow(`
-			SELECT tagxref.rid FROM tagxref
-			JOIN tag ON tag.tagid=tagxref.tagid
-			WHERE tag.tagname='sym-trunk'
-			  AND tagxref.tagtype>0
-			ORDER BY tagxref.mtime DESC LIMIT 1`,
-		).Scan(&rid)
-		if err != nil {
-			return resolveRID(r, "tip")
-		}
-		return rid, nil
-
-	default:
-		var rid int64
-		err := db.QueryRow(
-			"SELECT rid FROM blob WHERE uuid LIKE ?", version+"%",
-		).Scan(&rid)
-		if err != nil {
-			return 0, fmt.Errorf("artifact %q not found", version)
-		}
-		return rid, nil
-	}
+	return r.ResolveVersion(version)
 }
 
 // currentUser returns the current OS username, or "anonymous" if unavailable.
