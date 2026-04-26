@@ -436,7 +436,7 @@ $ libfossil --help</pre>
   <h2>Why you might want it <span class="anchor">why</span></h2>
   <p>Three reasons to reach for libfossil instead of shelling out to the upstream <code>fossil</code> binary or using CGo bindings.</p>
   <p><strong>You're embedding Fossil into a Go service.</strong> Build pipelines, code-search indexers, mirror servers, and AI-agent tools that read repository history all benefit from a library API instead of subprocess parsing. No exec calls, no version drift between hosts, observable through Go's standard <code>context.Context</code> and OpenTelemetry hooks.</p>
-  <p><strong>You're shipping to constrained targets.</strong> Static binaries cross-compile in seconds; CGo bindings don't. WASM compilation works out of the box. The cost is a slightly slower SQLite (modernc is pure Go); the upside is everywhere-runs without a build farm.</p>
+  <p><strong>You're shipping to constrained targets.</strong> Static binaries cross-compile in seconds; CGo bindings don't. WASM compilation works out of the box. The cost is a slightly slower SQLite (modernc is pure Go); the upside is the binary runs on any target without a build farm.</p>
   <p><strong>You want one library, not five subprocesses.</strong> Calling <code>fossil</code> over <code>os/exec</code> means re-parsing CLI text on every request. libfossil exposes typed Go values directly.</p>
 </section>
 
@@ -444,7 +444,7 @@ $ libfossil --help</pre>
   <span class="num">§04</span>
   <h2>How it fits together <span class="anchor">architecture</span></h2>
   <div class="table-scroll">
-<pre class="diagram">
+<pre class="ascii">
                 ┌─────────────┐    ┌─────────────────┐
                 │     CLI     │    │   Library API   │
                 └──────┬──────┘    └────────┬────────┘
