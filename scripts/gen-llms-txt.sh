@@ -49,7 +49,9 @@ find "$SITE_DIR/content" -name "*.md" -type f | sort | while read -r file; do
     echo "---" >> "$STATIC_DIR/llms-full.txt"
     echo "# Source: $file" >> "$STATIC_DIR/llms-full.txt"
     echo "" >> "$STATIC_DIR/llms-full.txt"
-    sed -n '/^---$/,/^---$/!p' "$file" >> "$STATIC_DIR/llms-full.txt"
+    awk 'NR==1 && /^---$/ { in_fm=1; next }
+     in_fm && /^---$/ { in_fm=0; next }
+     !in_fm' "$file" >> "$STATIC_DIR/llms-full.txt"
     echo "" >> "$STATIC_DIR/llms-full.txt"
 done
 
