@@ -9,6 +9,7 @@ import (
 	"github.com/danmestas/libfossil/internal/auth"
 	"github.com/danmestas/libfossil/internal/blob"
 	"github.com/danmestas/libfossil/internal/content"
+	"github.com/danmestas/libfossil/internal/manifest"
 	"github.com/danmestas/libfossil/internal/repo"
 	"github.com/danmestas/libfossil/internal/xfer"
 
@@ -176,6 +177,21 @@ func (h *handler) process(_ context.Context, req *xfer.Message) (*xfer.Message, 
 	// Process data cards and emit response blobs.
 	if err := h.processDataCards(req.Cards); err != nil {
 		return nil, err
+	}
+
+	// Crosslink any newly-received manifests into the relational tables
+	// (event/leaf/plink/mlink/tagxref). Without this the receiving repo
+	// stores blobs durably but exposes nothing on the timeline, fork
+	// detection sees stale leaf state, and the clone protocol cannot
+	// traverse manifest parents (mlink is empty) — symptoms documented
+	// in agent-infra trial 2026-04-25 finding #3.
+	//
+	// Only walk the crosslink scanner when we accepted files this round;
+	// pure pull/igot rounds add nothing relational to update.
+	if h.filesRecvd > 0 {
+		if _, err := manifest.Crosslink(h.repo); err != nil {
+			return nil, fmt.Errorf("HandleSync: crosslink: %w", err)
+		}
 	}
 
 	return &xfer.Message{Cards: h.resp}, nil
