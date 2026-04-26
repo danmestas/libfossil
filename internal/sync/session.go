@@ -279,12 +279,22 @@ func sessionEndFromSync(r *SyncResult, projectCode string) SessionEnd {
 }
 
 // cardSummary returns a short string describing a card (for trace logging).
+// codePrefix returns the first 8 characters of a code for trace logging,
+// or the full string when shorter. Avoids slice-out-of-range panics when
+// ServerCode/ProjectCode are empty (the no-codes-negotiated form).
+func codePrefix(s string) string {
+	if len(s) >= 8 {
+		return s[:8]
+	}
+	return s
+}
+
 func cardSummary(c xfer.Card) string {
 	switch v := c.(type) {
 	case *xfer.PullCard:
-		return fmt.Sprintf("srv=%s proj=%s", v.ServerCode[:8], v.ProjectCode[:8])
+		return fmt.Sprintf("srv=%s proj=%s", codePrefix(v.ServerCode), codePrefix(v.ProjectCode))
 	case *xfer.PushCard:
-		return fmt.Sprintf("srv=%s proj=%s", v.ServerCode[:8], v.ProjectCode[:8])
+		return fmt.Sprintf("srv=%s proj=%s", codePrefix(v.ServerCode), codePrefix(v.ProjectCode))
 	case *xfer.IGotCard:
 		return v.UUID[:16] + "..."
 	case *xfer.GimmeCard:
