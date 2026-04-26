@@ -208,7 +208,7 @@ Top-level `wrangler.jsonc`:
   "observability": { "enabled": true },
   "assets": { "directory": "./docs/site/public" },
   "build": {
-    "command": "curl -sSL https://github.com/gohugoio/hugo/releases/download/v0.160.0/hugo_extended_0.160.0_linux-amd64.tar.gz | tar xz hugo && go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest && make docs-gen-sdk && bash scripts/gen-llms-txt.sh && cd docs/site && ../../hugo --minify"
+    "command": "curl -sSL https://github.com/gohugoio/hugo/releases/download/v0.160.0/hugo_extended_0.160.0_linux-amd64.tar.gz | tar xz hugo && bash scripts/gen-llms-txt.sh && cd docs/site && ../../hugo --minify"
   },
   "compatibility_flags": ["nodejs_compat"]
 }
@@ -217,13 +217,11 @@ Top-level `wrangler.jsonc`:
 Build steps, in order:
 
 1. Download pinned Hugo extended (`v0.160.0` — same pin as dagnats).
-2. Install `gomarkdoc` (CF build env has Go preinstalled).
-3. `make docs-gen-sdk` — refresh SDK pages from the current code.
-4. `bash scripts/gen-llms-txt.sh` — refresh both llms artifacts.
-5. `hugo --minify` — write static output to `docs/site/public/`.
-6. Wrangler serves `docs/site/public/` via Workers Static Assets.
+2. `bash scripts/gen-llms-txt.sh` — refresh both llms artifacts from committed markdown.
+3. `hugo --minify` — write static output to `docs/site/public/`.
+4. Wrangler serves `docs/site/public/` via Workers Static Assets.
 
-This regenerates SDK pages on every CF build (dagnats does not — it relies on the committed pages being in sync). The cost is ~10s extra build time; the benefit is the deployed site can never drift from current code even if a contributor forgets the pre-commit hook.
+Drift protection comes from the pre-commit hook (Component 5), not from regenerating in CF. This matches dagnats's working setup exactly and keeps the CF build minimal and fast.
 
 ## Component 7 — Auto-deploy mechanism
 
