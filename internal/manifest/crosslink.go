@@ -3,6 +3,7 @@ package manifest
 import (
 	"fmt"
 	"log/slog"
+	"sort"
 
 	libfossil "github.com/danmestas/libfossil/internal/fsltype"
 	"github.com/danmestas/libfossil/internal/blob"
@@ -71,7 +72,8 @@ func Crosslink(r *repo.Repo) (int, error) {
 	}
 
 	linked := 0
-	deferred := 0
+	var deferredRids []libfossil.FslID
+	missingBlobs := make(map[string]struct{})
 	var pending []pendingItem
 	for _, c := range candidates {
 		data, err := content.Expand(r.DB(), c.rid)
@@ -104,7 +106,10 @@ func Crosslink(r *repo.Repo) (int, error) {
 		// crosslinks completely.
 		if d.Type == deck.Checkin {
 			if missing := missingCheckinRefs(r, d); len(missing) > 0 {
-				deferred++
+				deferredRids = append(deferredRids, c.rid)
+				for _, u := range missing {
+					missingBlobs[u] = struct{}{}
+				}
 				slog.Debug("manifest.Crosslink: deferring checkin",
 					"rid", c.rid,
 					"uuid", c.uuid,
@@ -145,10 +150,20 @@ func Crosslink(r *repo.Repo) (int, error) {
 		pending = append(pending, p...)
 	}
 
-	if deferred > 0 {
+	if len(deferredRids) > 0 {
+		// Sort missing-blob UUIDs so the rollup is byte-identical across
+		// runs that defer the same set, regardless of map iteration order.
+		distinctMissing := make([]string, 0, len(missingBlobs))
+		for u := range missingBlobs {
+			distinctMissing = append(distinctMissing, u)
+		}
+		sort.Strings(distinctMissing)
 		slog.Info("manifest.Crosslink: deferred checkins awaiting missing blobs",
-			"deferred", deferred,
-			"linked", linked)
+			"deferred", len(deferredRids),
+			"linked", linked,
+			"deferred_rids", deferredRids,
+			"missing_blob_count", len(distinctMissing),
+			"missing_blobs", distinctMissing)
 	}
 
 	// Pass 2: Process pending items (wiki backlinks, ticket rebuilds).
