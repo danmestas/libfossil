@@ -12,7 +12,7 @@ go install github.com/danmestas/libfossil/cmd/libfossil@latest
 libfossil --help
 ```
 
-The binary is statically linked. No CGo required.
+The binary is pure-Go and CGo-free — drop it on any host.
 
 ## Clone a repository
 
@@ -39,6 +39,8 @@ func main() {
 ```
 
 ## Open from Go
+
+After cloning (above), open the same `.fossil` file from Go and read its history:
 
 ```go
 package main
@@ -70,16 +72,26 @@ func main() {
 ## Sync over HTTP
 
 ```go
+package main
+
 import (
     "context"
+    "log"
 
     "github.com/danmestas/libfossil"
 )
 
-t := libfossil.NewHTTPTransport("https://example.com/repo.fossil")
-_, err := repo.Sync(ctx, t, libfossil.SyncOpts{Pull: true})
-if err != nil {
-    log.Fatal(err)
+func main() {
+    repo, err := libfossil.Open("repo.fossil")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer repo.Close()
+
+    t := libfossil.NewHTTPTransport("https://example.com/repo.fossil")
+    if _, err := repo.Sync(context.Background(), t, libfossil.SyncOpts{Pull: true}); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
