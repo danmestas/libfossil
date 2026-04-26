@@ -413,99 +413,62 @@ footer a { color: inherit; border-bottom-color: var(--mute); }
       <span>shell</span>
       <button type="button" class="copy-btn" data-copy="install" aria-label="Copy install command">copy</button>
     </div>
-    <pre id="install">$ go install github.com/danmestas/dagnats/cmd/dagnats@latest
-$ dagnats serve</pre>
+    <pre id="install">$ go install github.com/danmestas/libfossil/cmd/libfossil@latest
+$ libfossil --help</pre>
   </div>
-  <p>That is the entire install. There is no step three. <code>dagnats serve</code> starts an embedded NATS server, the orchestrator, the API, and the trigger system in one process.</p>
+  <p>That is the entire install. The binary is pure-Go, statically linked, and CGo-free &mdash; drop it on any Linux/macOS/Windows host with no runtime dependency.</p>
 </section>
 
 <section>
   <span class="num">§02</span>
   <h2>What it is <span class="anchor">overview</span></h2>
-  <p>dagnats is a Go workflow engine. You describe work as a directed acyclic graph of tasks; dagnats runs the graph, retries failures, recovers from crashes, and reconstructs state from an immutable event log.</p>
-  <p>Its only infrastructure dependency is NATS JetStream, which is embedded in the same process. There is no Postgres to migrate, no Redis to monitor, no separate broker to configure.</p>
-  <p>Two audiences benefit. Backend engineers needing durable workflows that survive restarts get a single binary instead of a small fleet of services. Teams building autonomous coding pipelines get first-class step types &mdash; <code>AgentLoop</code>, <code>Planner</code>, <code>Approval</code>, <code>WaitForEvent</code> &mdash; that other engines treat as application-layer concerns.</p>
+  <p>libfossil is a pure-Go reader and writer for <a href="https://fossil-scm.org">Fossil SCM</a> repositories &mdash; the SQLite-backed <code>.fossil</code> files used by Fossil. It exposes a Go API for opening repos, reading the timeline, committing, and syncing over HTTP, plus a <code>libfossil</code> CLI driving the same code paths.</p>
+  <p>No CGo means static binaries that cross-compile cleanly. A <code>GOOS=wasip1</code> build runs in browsers and edge runtimes. Two SQLite drivers (<code>modernc</code>, <code>ncruces</code>) are swappable depending on whether you want pure-Go ergonomics or a smaller WASM footprint.</p>
+  <ul>
+    <li><strong>One library, three pluggable axes.</strong> Swap the SQLite driver (<code>modernc</code>/<code>ncruces</code>), the sync transport (HTTP/custom), or the observer (OTel/custom) without touching application code.</li>
+    <li><strong>Static everywhere.</strong> Static binaries cross-compile cleanly. WASM works.</li>
+    <li><strong>Embeddable.</strong> Drop <code>libfossil.Open</code> into any Go service that needs to read <code>.fossil</code> repos &mdash; build pipelines, mirror servers, code-search indexers.</li>
+  </ul>
 </section>
 
 <section>
   <span class="num">§03</span>
   <h2>Why you might want it <span class="anchor">why</span></h2>
-  <ol>
-    <li><strong>One binary, zero external databases.</strong> The deploy is <code>scp dagnats user@host &amp;&amp; ./dagnats serve</code>. No Postgres migrations. No Redis to operate. No broker.</li>
-    <li><strong>Crash-safe by default.</strong> Workflow state is event-sourced into JetStream and snapshotted in KV. Kill the process, start it again, in-flight work resumes from the last event.</li>
-    <li><strong>Agent loops are first-class.</strong> <code>AgentLoop</code>, <code>Planner</code>, <code>Approval</code>, and Continue-As-New are step types in the workflow language &mdash; not patterns you reimplement per project.</li>
-    <li><strong>Inspectable.</strong> Every event is a JSON message on a stream. <code>nats sub "history.&gt;"</code> tails any workflow run live, in any terminal.</li>
-    <li><strong>Bounded.</strong> No unbounded queues. No unbounded retries. No recursion. Every loop has a fixed upper bound. (TigerStyle &mdash; safety first.)</li>
-  </ol>
+  <p>Three reasons to reach for libfossil instead of shelling out to the upstream <code>fossil</code> binary or using CGo bindings.</p>
+  <p><strong>You're embedding Fossil into a Go service.</strong> Build pipelines, code-search indexers, mirror servers, and AI-agent tools that read repository history all benefit from a library API instead of subprocess parsing. No exec calls, no version drift between hosts, observable through Go's standard <code>context.Context</code> and OpenTelemetry hooks.</p>
+  <p><strong>You're shipping to constrained targets.</strong> Static binaries cross-compile in seconds; CGo bindings don't. WASM compilation works out of the box. The cost is a slightly slower SQLite (modernc is pure Go); the upside is everywhere-runs without a build farm.</p>
+  <p><strong>You want one library, not five subprocesses.</strong> Calling <code>fossil</code> over <code>os/exec</code> means re-parsing CLI text on every request. libfossil exposes typed Go values directly.</p>
 </section>
 
 <section>
   <span class="num">§04</span>
   <h2>How it fits together <span class="anchor">architecture</span></h2>
   <div class="table-scroll">
-    <svg class="diagram" viewBox="0 0 640 260" role="img" aria-labelledby="arch-title arch-desc" preserveAspectRatio="xMidYMid meet">
-      <title id="arch-title">dagnats architecture</title>
-      <desc id="arch-desc">Triggers send events to the orchestrator. The orchestrator advances the DAG, dispatches tasks to workers, and receives results back. All workflow state lives in NATS JetStream and KV.</desc>
-
-      <defs>
-        <marker id="dn-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path class="arrowhead" d="M0,0 L10,5 L0,10 Z"/>
-        </marker>
-      </defs>
-
-      <g class="rule">
-        <line x1="40" y1="38" x2="160" y2="38"/>
-        <line x1="240" y1="38" x2="400" y2="38"/>
-        <line x1="480" y1="38" x2="600" y2="38"/>
-      </g>
-
-      <g class="head">
-        <text x="100" y="28" text-anchor="middle">triggers</text>
-        <text x="320" y="28" text-anchor="middle">orchestrator</text>
-        <text x="540" y="28" text-anchor="middle">workers</text>
-      </g>
-
-      <g class="item">
-        <text x="100" y="76" text-anchor="middle">cron</text>
-        <text x="100" y="100" text-anchor="middle">webhook</text>
-        <text x="100" y="124" text-anchor="middle">subject</text>
-      </g>
-
-      <rect class="box" x="240" y="60" width="160" height="100"/>
-      <g class="item">
-        <text x="320" y="88" text-anchor="middle">consume event</text>
-        <text x="320" y="112" text-anchor="middle">advance DAG</text>
-        <text x="320" y="136" text-anchor="middle">snapshot KV</text>
-      </g>
-
-      <rect class="box" x="490" y="60" width="100" height="100"/>
-      <g class="item">
-        <text x="540" y="88" text-anchor="middle">worker</text>
-        <text x="540" y="112" text-anchor="middle">worker</text>
-        <text x="540" y="136" text-anchor="middle">worker</text>
-      </g>
-
-      <rect class="box" x="240" y="200" width="160" height="40"/>
-      <g class="item">
-        <text x="320" y="225" text-anchor="middle">JetStream + KV</text>
-      </g>
-
-      <g class="flow">
-        <line x1="160" y1="100" x2="234" y2="100" marker-end="url(#dn-arrow)"/>
-        <line x1="400" y1="88" x2="486" y2="88" marker-end="url(#dn-arrow)"/>
-        <line x1="490" y1="136" x2="404" y2="136" marker-end="url(#dn-arrow)"/>
-        <line x1="320" y1="160" x2="320" y2="196" marker-end="url(#dn-arrow)"/>
-      </g>
-
-      <g class="flow-label">
-        <text x="197" y="92" text-anchor="middle">events</text>
-        <text x="443" y="80" text-anchor="middle">tasks</text>
-        <text x="447" y="154" text-anchor="middle">results</text>
-        <text x="334" y="183" text-anchor="start">state</text>
-      </g>
-    </svg>
+<pre class="diagram">
+                ┌─────────────┐    ┌─────────────────┐
+                │     CLI     │    │   Library API   │
+                └──────┬──────┘    └────────┬────────┘
+                       │                    │
+                       └────────┬───────────┘
+                                ▼
+                         ┌─────────────┐
+                         │    Repo     │   ◀───── you call this
+                         └──────┬──────┘
+                                │
+            ┌───────────────────┼───────────────────┐
+            ▼                   ▼                   ▼
+     ┌────────────┐      ┌────────────┐      ┌────────────┐
+     │ DB Driver  │      │ Transport  │      │  Observer  │
+     │ modernc /  │      │   (HTTP)   │      │   (OTel)   │
+     │ ncruces    │      └────────────┘      └────────────┘
+     └─────┬──────┘
+           ▼
+     ┌────────────┐
+     │  .fossil   │   (SQLite)
+     └────────────┘
+</pre>
   </div>
-  <p class="fineprint">All workflow state lives in NATS JetStream + KV &mdash; that is the entire system. There is no separate database.</p>
+  <p class="fineprint">Three pluggable axes off <code>Repo</code>. The DB driver decides how SQLite runs (pure Go vs. Wasm-friendly). The transport decides how sync talks to a remote (HTTP today; custom transports for unusual networks). Observers hook into sync, checkout, and commit events for telemetry and auditing.</p>
 </section>
 
 <section>
@@ -516,30 +479,30 @@ $ dagnats serve</pre>
     <thead>
       <tr>
         <th></th>
-        <th class="col-self">dagnats</th>
-        <th>Temporal</th>
-        <th>Hatchet</th>
-        <th>Inngest</th>
+        <th class="col-self">libfossil</th>
+        <th>shell-out to fossil</th>
+        <th>CGo libfossil bindings</th>
       </tr>
     </thead>
     <tbody>
-      <tr><td>Stack</td>         <td class="col-self">NATS only</td>      <td>PG + Cassandra</td> <td>PG + RabbitMQ</td>  <td>PG + Redis</td></tr>
-      <tr><td>Binaries</td>      <td class="col-self">1</td>              <td>~5</td>             <td>~3</td>             <td>hosted</td></tr>
-      <tr><td>OSS</td>           <td class="col-self">yes</td>            <td>yes</td>            <td>yes</td>            <td>partial</td></tr>
-      <tr><td>Native agent steps</td><td class="col-self">yes</td>        <td>no</td>             <td>yes</td>            <td>yes</td></tr>
-      <tr><td>SDKs</td>          <td class="col-self">Go + HTTP bridge</td><td>many</td>          <td>3</td>              <td>3</td></tr>
-      <tr><td>Self-host</td>     <td class="col-self">trivial</td>        <td>involved</td>       <td>moderate</td>       <td>n/a</td></tr>
+      <tr><td>Runtime deps</td>     <td class="col-self">none</td>            <td><code>fossil</code> binary in PATH</td> <td>C toolchain + libsqlite3</td></tr>
+      <tr><td>Static binary</td>    <td class="col-self">yes</td>             <td>host fossil only</td>                  <td>host SQLite only</td></tr>
+      <tr><td>WASM target</td>      <td class="col-self">yes (wasip1)</td>    <td>no</td>                                 <td>no</td></tr>
+      <tr><td>Observability</td>    <td class="col-self">context + OTel</td>  <td>parse stderr</td>                       <td>none built-in</td></tr>
+      <tr><td>Embeddable in Go</td> <td class="col-self">yes</td>             <td>subprocess only</td>                    <td>yes (with CGo)</td></tr>
+      <tr><td>API stability</td>    <td class="col-self">alpha; v0.x</td>     <td>stable</td>                             <td>tracks C upstream</td></tr>
     </tbody>
   </table>
   </div>
-  <p class="fineprint">Comparison reflects open-source distributions as of writing. Approximate; orientation only.</p>
+  <p class="fineprint">Comparison reflects libfossil's current scope. The upstream Fossil binary remains the reference implementation; libfossil targets the embedding-into-Go-services niche.</p>
 </section>
 
 <section>
   <span class="num">§06</span>
   <h2>What it is not <span class="anchor">limits</span></h2>
-  <p>dagnats is young. It is single-tenant by design. There is one Go SDK plus an HTTP bridge for everything else; if you need a native TypeScript or Python SDK, you will be writing it.</p>
-  <p>Don't reach for it for sub-millisecond task routing (use a queue). Don't reach for it for embarrassingly-parallel batch jobs without dependencies (use a worker pool). Don't reach for it where eventual consistency would surprise you (use a database with transactions).</p>
+  <p><strong>No GUI.</strong> Fossil ships an embedded web UI; libfossil does not. If you need it, run the upstream <code>fossil</code> binary alongside.</p>
+  <p><strong>No hosting (yet).</strong> libfossil reads and writes <code>.fossil</code> files; it does not run an HTTP server that serves them to other Fossil clients. Mirroring works as a sync target, not a host.</p>
+  <p><strong>No magic schema migrations.</strong> libfossil tracks the upstream Fossil schema. Breaking format changes upstream require a libfossil update before you can open the new format.</p>
 </section>
 
 <section>
@@ -550,12 +513,11 @@ $ dagnats serve</pre>
       <span>shell</span>
       <button type="button" class="copy-btn" data-copy="quickstart" aria-label="Copy quickstart commands">copy</button>
     </div>
-    <pre id="quickstart">$ go install github.com/danmestas/dagnats/cmd/dagnats@latest
-$ dagnats serve                              # one process, embedded NATS
-$ dagnats workflow register hello.json
-$ dagnats run start hello --watch</pre>
+    <pre id="quickstart">$ go install github.com/danmestas/libfossil/cmd/libfossil@latest
+$ libfossil --help                            # CLI commands
+$ libfossil --version</pre>
   </div>
-  <p>Walkthrough: <a href="/docs/get-started/">/docs/get-started</a> · Architecture: <a href="/docs/architecture/">/docs/architecture</a> · SDK reference: <a href="/docs/reference/sdk/">/docs/reference/sdk</a> · Source: <a href="https://github.com/danmestas/dagnats">github.com/danmestas/dagnats</a>.</p>
+  <p>Walkthrough: <a href="/docs/quickstart/">/docs/quickstart</a> · Architecture: <a href="/docs/architecture/">/docs/architecture</a> · SDK reference: <a href="/docs/reference/sdk/">/docs/reference/sdk</a> · Source: <a href="https://github.com/danmestas/libfossil">github.com/danmestas/libfossil</a>.</p>
 </section>
 
 </main>
