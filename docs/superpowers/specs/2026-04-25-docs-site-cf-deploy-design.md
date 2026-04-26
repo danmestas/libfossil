@@ -8,7 +8,7 @@
 
 Add a public web presence for libfossil that mirrors the sibling project [`dagnats`](https://github.com/danmestas/dagnats):
 
-- A single-page landing site at the repo root (`site/index.html`).
+- A single-page landing site as a Hugo home-page layout override (`docs/site/layouts/index.html`).
 - A documentation site built with Hugo + Hextra (`docs/site/`).
 - Auto-generated Go API reference via `gomarkdoc`.
 - Two `llms.txt`-style artifacts for LLM consumption.
@@ -39,12 +39,12 @@ Implementation reuses the dagnats CSS and HTML chrome verbatim — only the cont
 
 ```
 libfossil/
-├── site/
-│   └── index.html                                # landing page (forked from dagnats)
 ├── docs/
 │   ├── site/                                     # Hugo site root
 │   │   ├── hugo.yaml                             # Hextra theme config
 │   │   ├── go.mod, go.sum                        # Hugo modules (Hextra)
+│   │   ├── layouts/
+│   │   │   └── index.html                        # landing page (Hugo home override, served at /)
 │   │   ├── content/
 │   │   │   ├── _index.md                         # docs site landing
 │   │   │   ├── docs/
@@ -63,7 +63,6 @@ libfossil/
 │   │   │   │       ├── observer/otel/api.md
 │   │   │   │       └── dst/api.md
 │   │   │   └── examples/_index.md
-│   │   ├── layouts/                              # any local overrides (likely empty)
 │   │   ├── static/                               # gitignored: gen-llms-txt output
 │   │   └── public/                               # gitignored: Hugo build output
 │   └── superpowers/specs/                        # this spec lives here
@@ -75,9 +74,11 @@ libfossil/
 
 The four existing files in `docs/` (`architecture.md`, `extension-points.md`, `migration-from-fossil.md`, `testing.md`) move under `docs/site/content/docs/`. Single canonical location; avoids drift.
 
-## Component 1 — Landing page (`site/index.html`)
+## Component 1 — Landing page (`docs/site/layouts/index.html`)
 
-Approach: fork dagnats's `site/index.html` (single 1,194-line file with embedded CSS and vanilla JS). Keep all CSS variables, fonts, layout primitives, animations, COPY chrome. Rewrite the textual content for libfossil.
+The landing page is a Hugo home-page **layout override** — it replaces Hextra's default home template. Hugo compiles it into `docs/site/public/index.html` during `hugo --minify`, and Cloudflare Workers serves that file at `/`. The site nav and `/docs/...` pages continue to use Hextra layouts unchanged.
+
+Approach: fork dagnats's `docs/site/layouts/index.html` (Hugo layout with embedded CSS and vanilla JS, plus a few Hextra partial calls for `<head>` chrome). Keep all CSS variables, fonts, layout primitives, animations, COPY chrome. Rewrite the textual content for libfossil.
 
 **Section structure (one-to-one with dagnats):**
 
@@ -264,7 +265,7 @@ Manual verification once implemented:
 ## Files added / changed / moved
 
 **Added:**
-- `site/index.html`
+- `docs/site/layouts/index.html` (landing page, Hugo home-page layout override)
 - `docs/site/hugo.yaml`, `docs/site/go.mod`, `docs/site/go.sum`
 - `docs/site/content/_index.md`, `docs/site/content/docs/_index.md`, `docs/site/content/docs/quickstart.md`, `docs/site/content/examples/_index.md`
 - `docs/site/content/docs/reference/sdk/**/api.md` (generated, committed)
@@ -273,7 +274,7 @@ Manual verification once implemented:
 
 **Changed:**
 - `Makefile` (new docs targets, hook drift check)
-- `.gitignore` (`docs/site/public/`, `docs/site/static/llms*.txt`, `docs/site/_vendor/`, root `hugo` binary)
+- `.gitignore` (`docs/site/public/`, `docs/site/static/llms*.txt`, `docs/site/_vendor/`, `docs/site/hugo` binary)
 
 **Moved:**
 - `docs/architecture.md` → `docs/site/content/docs/architecture.md`
