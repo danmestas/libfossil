@@ -203,6 +203,12 @@ func missingCheckinRefs(r *repo.Repo, d *deck.Deck) []string {
 // content.Expand rejects, so we filter those out — a phantom blob row is
 // not "present" for crosslink purposes.
 func blobPresent(r *repo.Repo, uuid string) bool {
+	if r == nil {
+		panic("manifest.blobPresent: r must not be nil")
+	}
+	if uuid == "" {
+		panic("manifest.blobPresent: uuid must not be empty")
+	}
 	var size int64
 	err := r.DB().QueryRow("SELECT size FROM blob WHERE uuid=?", uuid).Scan(&size)
 	if err != nil {
