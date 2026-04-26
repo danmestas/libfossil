@@ -444,31 +444,69 @@ $ libfossil --help</pre>
   <span class="num">§04</span>
   <h2>How it fits together <span class="anchor">architecture</span></h2>
   <div class="table-scroll">
-<pre class="ascii">
-                ┌─────────────┐    ┌─────────────────┐
-                │     CLI     │    │   Library API   │
-                └──────┬──────┘    └────────┬────────┘
-                       │                    │
-                       └────────┬───────────┘
-                                ▼
-                         ┌─────────────┐
-                         │    Repo     │   ◀───── you call this
-                         └──────┬──────┘
-                                │
-            ┌───────────────────┼───────────────────┐
-            ▼                   ▼                   ▼
-     ┌────────────┐      ┌────────────┐      ┌────────────┐
-     │ DB Driver  │      │ Transport  │      │  Observer  │
-     │ modernc /  │      │   (HTTP)   │      │   (OTel)   │
-     │ ncruces    │      └────────────┘      └────────────┘
-     └─────┬──────┘
-           ▼
-     ┌────────────┐
-     │  .fossil   │   (SQLite)
-     └────────────┘
-</pre>
+    <svg class="diagram" viewBox="0 0 640 260" role="img" aria-labelledby="arch-title arch-desc" preserveAspectRatio="xMidYMid meet">
+      <title id="arch-title">libfossil architecture</title>
+      <desc id="arch-desc">Callers (cli, library, wasm) invoke methods on the Repo handle. The Repo delegates to three pluggable axes: db driver, transport, observer. Repository state lives on disk in a .fossil SQLite file.</desc>
+
+      <defs>
+        <marker id="lf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path class="arrowhead" d="M0,0 L10,5 L0,10 Z"/>
+        </marker>
+      </defs>
+
+      <g class="rule">
+        <line x1="40" y1="38" x2="160" y2="38"/>
+        <line x1="240" y1="38" x2="400" y2="38"/>
+        <line x1="480" y1="38" x2="600" y2="38"/>
+      </g>
+
+      <g class="head">
+        <text x="100" y="28" text-anchor="middle">callers</text>
+        <text x="320" y="28" text-anchor="middle">core</text>
+        <text x="540" y="28" text-anchor="middle">plugins</text>
+      </g>
+
+      <g class="item">
+        <text x="100" y="76" text-anchor="middle">cli</text>
+        <text x="100" y="100" text-anchor="middle">library</text>
+        <text x="100" y="124" text-anchor="middle">wasm</text>
+      </g>
+
+      <rect class="box" x="240" y="60" width="160" height="100"/>
+      <g class="item">
+        <text x="320" y="88" text-anchor="middle">Open</text>
+        <text x="320" y="112" text-anchor="middle">Sync</text>
+        <text x="320" y="136" text-anchor="middle">Timeline</text>
+      </g>
+
+      <rect class="box" x="490" y="60" width="100" height="100"/>
+      <g class="item">
+        <text x="540" y="88" text-anchor="middle">db driver</text>
+        <text x="540" y="112" text-anchor="middle">transport</text>
+        <text x="540" y="136" text-anchor="middle">observer</text>
+      </g>
+
+      <rect class="box" x="240" y="200" width="160" height="40"/>
+      <g class="item">
+        <text x="320" y="225" text-anchor="middle">.fossil (SQLite)</text>
+      </g>
+
+      <g class="flow">
+        <line x1="160" y1="100" x2="234" y2="100" marker-end="url(#lf-arrow)"/>
+        <line x1="400" y1="88" x2="486" y2="88" marker-end="url(#lf-arrow)"/>
+        <line x1="490" y1="136" x2="404" y2="136" marker-end="url(#lf-arrow)"/>
+        <line x1="320" y1="160" x2="320" y2="196" marker-end="url(#lf-arrow)"/>
+      </g>
+
+      <g class="flow-label">
+        <text x="197" y="92" text-anchor="middle">calls</text>
+        <text x="443" y="80" text-anchor="middle">delegate</text>
+        <text x="447" y="154" text-anchor="middle">events</text>
+        <text x="334" y="183" text-anchor="start">persist</text>
+      </g>
+    </svg>
   </div>
-  <p class="fineprint">Three pluggable axes off <code>Repo</code>. The DB driver decides how SQLite runs (pure Go vs. Wasm-friendly). The transport decides how sync talks to a remote (HTTP today; custom transports for unusual networks). Observers hook into sync, checkout, and commit events for telemetry and auditing.</p>
+  <p class="fineprint"><code>Repo</code> is the only handle your code touches. Three pluggable axes around it decide how SQLite runs, how sync talks to remotes, and where telemetry goes — swappable without changing application code.</p>
 </section>
 
 <section>
