@@ -1,6 +1,6 @@
 GOMARKDOC_VERSION := v1.1.0
 
-.PHONY: test test-drivers test-otel test-all vet build setup-hooks docs-gen-sdk
+.PHONY: test test-drivers test-otel test-all vet build setup-hooks docs-gen-sdk docs-gen-llms
 
 test:
 	go test ./... -count=1 -timeout=120s
@@ -36,3 +36,6 @@ docs-gen-sdk:
 	gomarkdoc --output docs/site/content/docs/reference/sdk/db/api.md            ./db/
 	gomarkdoc --output docs/site/content/docs/reference/sdk/observer/otel/api.md ./observer/otel/
 	gomarkdoc --output docs/site/content/docs/reference/sdk/dst/api.md           ./dst/
+
+docs-gen-llms:
+	bash scripts/gen-llms-txt.sh
