@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	libfossil "github.com/danmestas/libfossil"
-	"github.com/danmestas/libfossil/internal/repo"
 )
 
 // Globals holds flags shared by all CLI commands.
@@ -28,18 +27,6 @@ func (g *Globals) OpenRepo() (*libfossil.Repo, error) {
 		g.Repo = found
 	}
 	return libfossil.Open(g.Repo)
-}
-
-// openInternalRepo opens the internal repo handle for commands that need
-// raw DB access (query, info, wiki, tag list, etc.).
-func openInternalRepo(g *Globals) (*repo.Repo, error) {
-	r, err := g.OpenRepo()
-	if err != nil {
-		return nil, err
-	}
-	// The caller is responsible for closing this via r.Close() on the
-	// public handle; we hand back the inner pointer for DB queries.
-	return r.Inner(), nil
 }
 
 // resolveRID resolves a version string to a rid.
