@@ -1,4 +1,9 @@
-# libfossil architecture
+---
+title: Architecture
+weight: 20
+---
+
+# Architecture
 
 ## Overview
 
@@ -79,7 +84,7 @@ without re-parsing blobs.
 ## Driver layer
 
 `db/` is a thin wrapper over `database/sql`. See
-[`db/doc.go`](../db/doc.go). A driver registers at `init` time via
+[`db/doc.go`](https://github.com/danmestas/libfossil/blob/main/db/doc.go). A driver registers at `init` time via
 `db.Register(DriverConfig{Name, BuildDSN})`; exactly one registration is
 allowed (a second call panics). `db.Open` / `db.OpenWith` look up the
 registered driver, run `BuildDSN(path, pragmas)` to produce the DSN, and
@@ -123,12 +128,12 @@ server pair in `internal/sync`. Wire framing (xfer "cards") lives in
 
 The core keeps instrumentation as a non-goal; hooks are plain Go
 interfaces on the public API. `SyncObserver` and `CheckoutObserver` in
-[`observer.go`](../observer.go) define lifecycle events (session
+[`observer.go`](https://github.com/danmestas/libfossil/blob/main/observer.go) define lifecycle events (session
 start/end, per-round stats, extract/scan/commit phases). `NopSyncObserver`
 / `NopCheckoutObserver` are zero-cost defaults; `StdoutSyncObserver` /
 `StdoutCheckoutObserver` log to stderr for quick debugging.
 
-For OpenTelemetry, [`observer/otel`](../observer/otel/) is a separate Go
+For OpenTelemetry, [`observer/otel`](https://github.com/danmestas/libfossil/tree/main/observer/otel/) is a separate Go
 module so the core doesn't pull in the OTel SDK. Users import it
 explicitly when they want traces, metrics, or structured logs.
 
@@ -147,5 +152,5 @@ sync code wrap calls behind `Buggify` so the simulator can exercise
 failure paths. `SeededBuggify` in `dst` adapts this to the
 `BuggifyChecker` interface used by the sync client.
 
-See [testing.md](./testing.md) for running the DST matrix, seed sweeps,
+See [testing.md](./testing) for running the DST matrix, seed sweeps,
 and the driver test matrix.
