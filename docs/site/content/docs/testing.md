@@ -7,7 +7,7 @@ weight: 50
 
 This guide describes libfossil's test strategy for contributors adding tests or
 investigating failures. For the module layout referenced throughout, see
-[`architecture.md`](./architecture.md).
+[`architecture.md`](./architecture).
 
 ## Overview
 

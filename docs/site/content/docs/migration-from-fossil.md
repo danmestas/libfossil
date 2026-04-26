@@ -3,7 +3,7 @@ title: Migration from Fossil
 weight: 30
 ---
 
-# Migration from upstream Fossil
+# Migration from Fossil
 
 This guide is for users of upstream [Fossil SCM](https://fossil-scm.org) (the C
 binary distributed by `fossil-scm.org`) who are evaluating `libfossil` — a
