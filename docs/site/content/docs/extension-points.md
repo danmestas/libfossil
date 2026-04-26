@@ -3,8 +3,6 @@ title: Extension Points
 weight: 40
 ---
 
-# Extension Points
-
 libfossil exposes three surfaces for consumers that want to instrument, extend, or replace pieces of the stack:
 
 1. **Observer interfaces** for sync and checkout lifecycle events (`SyncObserver`, `CheckoutObserver`).

@@ -3,8 +3,6 @@ title: db/driver/modernc
 weight: 10
 ---
 
-# db/driver/modernc
-
 Pure-Go SQLite driver, the libfossil default.
 
 ```go
