@@ -53,7 +53,7 @@ The [Querier](<#Querier>) interface \(Exec, QueryRow, Query\) is satisfied by bo
 
 
 <a name="CreateRepoSchema"></a>
-## func CreateRepoSchema
+## func [CreateRepoSchema](<https://github.com/danmestas/libfossil/blob/main/db/schema.go#L193>)
 
 ```go
 func CreateRepoSchema(d *DB) error
@@ -62,7 +62,7 @@ func CreateRepoSchema(d *DB) error
 
 
 <a name="DefaultPragmas"></a>
-## func DefaultPragmas
+## func [DefaultPragmas](<https://github.com/danmestas/libfossil/blob/main/db/config.go#L10>)
 
 ```go
 func DefaultPragmas() map[string]string
@@ -71,7 +71,7 @@ func DefaultPragmas() map[string]string
 DefaultPragmas returns the default pragma settings.
 
 <a name="Register"></a>
-## func Register
+## func [Register](<https://github.com/danmestas/libfossil/blob/main/db/register.go#L14>)
 
 ```go
 func Register(cfg DriverConfig)
@@ -80,7 +80,7 @@ func Register(cfg DriverConfig)
 Register registers a SQLite driver for use by Open/OpenWith. Must be called exactly once \(typically from a driver package's init\(\)\). Panics if called more than once.
 
 <a name="ScanInt"></a>
-## func ScanInt
+## func [ScanInt](<https://github.com/danmestas/libfossil/blob/main/db/scan.go#L43>)
 
 ```go
 func ScanInt(v any) (int, bool)
@@ -89,7 +89,7 @@ func ScanInt(v any) (int, bool)
 ScanInt converts a scanned value to int. SQLite drivers differ on BOOLEAN columns: modernc returns int64, ncruces returns bool. Scan the column into an \`any\` variable, then pass it here.
 
 <a name="ScanJulianDay"></a>
-## func ScanJulianDay
+## func [ScanJulianDay](<https://github.com/danmestas/libfossil/blob/main/db/scan.go#L12>)
 
 ```go
 func ScanJulianDay(v any) (float64, bool)
@@ -98,7 +98,7 @@ func ScanJulianDay(v any) (float64, bool)
 ScanJulianDay converts a scanned mtime value to a float64 Julian Day Number. SQLite drivers return mtime differently: modernc returns float64, ncruces returns time.Time for DATETIME/TIMESTAMP/DATE columns. Scan the column into an \`any\` variable, then pass it here.
 
 <a name="ScanTime"></a>
-## func ScanTime
+## func [ScanTime](<https://github.com/danmestas/libfossil/blob/main/db/scan.go#L27>)
 
 ```go
 func ScanTime(v any) (time.Time, bool)
@@ -107,7 +107,7 @@ func ScanTime(v any) (time.Time, bool)
 ScanTime converts a scanned mtime value to time.Time. Same driver\-compatibility rationale as ScanJulianDay.
 
 <a name="SeedConfig"></a>
-## func SeedConfig
+## func [SeedConfig](<https://github.com/danmestas/libfossil/blob/main/db/schema.go#L235>)
 
 ```go
 func SeedConfig(d *DB, rng simio.Rand) error
@@ -116,7 +116,7 @@ func SeedConfig(d *DB, rng simio.Rand) error
 
 
 <a name="SeedNobody"></a>
-## func SeedNobody
+## func [SeedNobody](<https://github.com/danmestas/libfossil/blob/main/db/schema.go#L224>)
 
 ```go
 func SeedNobody(d *DB, caps string) error
@@ -125,7 +125,7 @@ func SeedNobody(d *DB, caps string) error
 SeedNobody inserts a "nobody" user with the given capabilities. This controls anonymous access policy for the repo.
 
 <a name="SeedUser"></a>
-## func SeedUser
+## func [SeedUser](<https://github.com/danmestas/libfossil/blob/main/db/schema.go#L208>)
 
 ```go
 func SeedUser(d *DB, login string) error
@@ -134,7 +134,7 @@ func SeedUser(d *DB, login string) error
 
 
 <a name="DB"></a>
-## type DB
+## type [DB](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L10-L14>)
 
 DB wraps a SQLite database connection.
 
@@ -145,7 +145,7 @@ type DB struct {
 ```
 
 <a name="Open"></a>
-### func Open
+### func [Open](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L17>)
 
 ```go
 func Open(path string) (*DB, error)
@@ -154,7 +154,7 @@ func Open(path string) (*DB, error)
 Open opens a SQLite database with the registered driver and default pragmas.
 
 <a name="OpenWith"></a>
-### func OpenWith
+### func [OpenWith](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L22>)
 
 ```go
 func OpenWith(path string, cfg OpenConfig) (*DB, error)
@@ -163,7 +163,7 @@ func OpenWith(path string, cfg OpenConfig) (*DB, error)
 OpenWith opens a SQLite database with explicit configuration.
 
 <a name="DB.ApplicationID"></a>
-### func \(\*DB\) ApplicationID
+### func \(\*DB\) [ApplicationID](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L115>)
 
 ```go
 func (d *DB) ApplicationID() (int32, error)
@@ -172,7 +172,7 @@ func (d *DB) ApplicationID() (int32, error)
 
 
 <a name="DB.Close"></a>
-### func \(\*DB\) Close
+### func \(\*DB\) [Close](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L86>)
 
 ```go
 func (d *DB) Close() error
@@ -181,7 +181,7 @@ func (d *DB) Close() error
 
 
 <a name="DB.Driver"></a>
-### func \(\*DB\) Driver
+### func \(\*DB\) [Driver](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L94>)
 
 ```go
 func (d *DB) Driver() string
@@ -190,7 +190,7 @@ func (d *DB) Driver() string
 
 
 <a name="DB.Exec"></a>
-### func \(\*DB\) Exec
+### func \(\*DB\) [Exec](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L98>)
 
 ```go
 func (d *DB) Exec(query string, args ...any) (sql.Result, error)
@@ -199,7 +199,7 @@ func (d *DB) Exec(query string, args ...any) (sql.Result, error)
 
 
 <a name="DB.Path"></a>
-### func \(\*DB\) Path
+### func \(\*DB\) [Path](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L90>)
 
 ```go
 func (d *DB) Path() string
@@ -208,7 +208,7 @@ func (d *DB) Path() string
 
 
 <a name="DB.Query"></a>
-### func \(\*DB\) Query
+### func \(\*DB\) [Query](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L106>)
 
 ```go
 func (d *DB) Query(query string, args ...any) (*sql.Rows, error)
@@ -217,7 +217,7 @@ func (d *DB) Query(query string, args ...any) (*sql.Rows, error)
 
 
 <a name="DB.QueryRow"></a>
-### func \(\*DB\) QueryRow
+### func \(\*DB\) [QueryRow](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L102>)
 
 ```go
 func (d *DB) QueryRow(query string, args ...any) *sql.Row
@@ -226,7 +226,7 @@ func (d *DB) QueryRow(query string, args ...any) *sql.Row
 
 
 <a name="DB.SetApplicationID"></a>
-### func \(\*DB\) SetApplicationID
+### func \(\*DB\) [SetApplicationID](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L110>)
 
 ```go
 func (d *DB) SetApplicationID(id int32) error
@@ -235,7 +235,7 @@ func (d *DB) SetApplicationID(id int32) error
 
 
 <a name="DB.SqlDB"></a>
-### func \(\*DB\) SqlDB
+### func \(\*DB\) [SqlDB](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L79>)
 
 ```go
 func (d *DB) SqlDB() *sql.DB
@@ -244,7 +244,7 @@ func (d *DB) SqlDB() *sql.DB
 SqlDB returns the underlying \*sql.DB connection.
 
 <a name="DB.WithTx"></a>
-### func \(\*DB\) WithTx
+### func \(\*DB\) [WithTx](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L137>)
 
 ```go
 func (d *DB) WithTx(fn func(tx *Tx) error) error
@@ -253,7 +253,7 @@ func (d *DB) WithTx(fn func(tx *Tx) error) error
 
 
 <a name="DriverConfig"></a>
-## type DriverConfig
+## type [DriverConfig](<https://github.com/danmestas/libfossil/blob/main/db/register.go#L4-L7>)
 
 DriverConfig defines a SQLite driver's name and DSN builder.
 
@@ -265,7 +265,7 @@ type DriverConfig struct {
 ```
 
 <a name="RegisteredDriver"></a>
-### func RegisteredDriver
+### func [RegisteredDriver](<https://github.com/danmestas/libfossil/blob/main/db/register.go#L31>)
 
 ```go
 func RegisteredDriver() *DriverConfig
@@ -274,7 +274,7 @@ func RegisteredDriver() *DriverConfig
 RegisteredDriver returns a copy of the currently registered driver config, or nil if none.
 
 <a name="OpenConfig"></a>
-## type OpenConfig
+## type [OpenConfig](<https://github.com/danmestas/libfossil/blob/main/db/config.go#L4-L7>)
 
 OpenConfig allows callers to customize driver selection and pragmas.
 
@@ -286,7 +286,7 @@ type OpenConfig struct {
 ```
 
 <a name="Querier"></a>
-## type Querier
+## type [Querier](<https://github.com/danmestas/libfossil/blob/main/db/querier.go#L8-L12>)
 
 Querier is the common interface satisfied by both \*DB and \*Tx. Functions that need to work inside transactions accept Querier instead of \*DB.
 
@@ -299,7 +299,7 @@ type Querier interface {
 ```
 
 <a name="Tx"></a>
-## type Tx
+## type [Tx](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L121-L123>)
 
 
 
@@ -310,7 +310,7 @@ type Tx struct {
 ```
 
 <a name="Tx.Exec"></a>
-### func \(\*Tx\) Exec
+### func \(\*Tx\) [Exec](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L125>)
 
 ```go
 func (t *Tx) Exec(query string, args ...any) (sql.Result, error)
@@ -319,7 +319,7 @@ func (t *Tx) Exec(query string, args ...any) (sql.Result, error)
 
 
 <a name="Tx.Query"></a>
-### func \(\*Tx\) Query
+### func \(\*Tx\) [Query](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L133>)
 
 ```go
 func (t *Tx) Query(query string, args ...any) (*sql.Rows, error)
@@ -328,7 +328,7 @@ func (t *Tx) Query(query string, args ...any) (*sql.Rows, error)
 
 
 <a name="Tx.QueryRow"></a>
-### func \(\*Tx\) QueryRow
+### func \(\*Tx\) [QueryRow](<https://github.com/danmestas/libfossil/blob/main/db/db.go#L129>)
 
 ```go
 func (t *Tx) QueryRow(query string, args ...any) *sql.Row

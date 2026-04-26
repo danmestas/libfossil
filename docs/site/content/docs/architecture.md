@@ -3,8 +3,6 @@ title: Architecture
 weight: 20
 ---
 
-# Architecture
-
 ## Overview
 
 libfossil is a pure-Go library and CLI that reads and writes Fossil SCM's

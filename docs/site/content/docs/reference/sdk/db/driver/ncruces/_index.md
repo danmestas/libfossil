@@ -3,8 +3,6 @@ title: db/driver/ncruces
 weight: 20
 ---
 
-# db/driver/ncruces
-
 Wasm-friendly SQLite driver based on `ncruces/go-sqlite3`.
 
 ```go
