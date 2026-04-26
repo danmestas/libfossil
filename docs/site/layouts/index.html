@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="libfossil — pure-Go library and CLI for Fossil SCM repositories. Zero CGo, static binaries, WASM-ready.">
+<meta name="color-scheme" content="light dark">
+<title>libfossil — pure-Go Fossil SCM library</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:  #f5f1e6;
+  --paper-2:#ece7d8;
+  --ink:    #14110b;
+  --mute:   #5e5b53;
+  --rule:   #14110b;
+  --ember:  #c63a0f;
+  --measure: 76ch;
+  --gap:   clamp(2.25rem, 5vw, 3.5rem);
+  --mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, "Courier New", monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 clamp(15px, 1.05vw, 17px)/1.7 var(--mono);
+  font-feature-settings: "tnum" 1, "calt" 1, "ss01" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+.skip { position: absolute; left: -9999px; }
+.skip:focus {
+  position: fixed; top: 0.75rem; left: 0.75rem;
+  background: var(--ember); color: var(--paper);
+  padding: 0.5rem 0.75rem; z-index: 10; text-decoration: none;
+}
+header.topbar {
+  border-bottom: 1px solid var(--rule);
+  padding: clamp(0.625rem, 2.5vw, 0.75rem) clamp(1rem, 4vw, 1.5rem);
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 1rem; flex-wrap: wrap;
+  font-size: 0.78125rem;
+  letter-spacing: 0.04em;
+}
+.topbar a { color: inherit; text-decoration: none; border-bottom: 1px solid currentColor; }
+.topbar a:hover { color: var(--ember); }
+.topbar .name { font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+.topbar .meta { color: var(--mute); display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.topbar .meta span { display: inline-flex; gap: 0.4rem; }
+.topbar .meta b { color: var(--ink); font-weight: 500; }
+
+main {
+  max-width: 88ch;
+  margin: 0 auto;
+  padding: clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 1.5rem) clamp(3rem, 6vw, 4.5rem);
+  overflow-wrap: anywhere;
+}
+
+.title {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  padding-bottom: clamp(2rem, 4vw, 2.75rem);
+  margin-bottom: clamp(2rem, 4vw, 3rem);
+  border-bottom: 1px solid var(--rule);
+}
+.title h1 {
+  font-size: clamp(2.75rem, 13vw, 6.5rem);
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 0.92;
+}
+.title .lead {
+  font-size: clamp(1rem, 1.2vw, 1.0625rem);
+  max-width: var(--measure);
+  color: var(--ink);
+  line-height: 1.6;
+}
+.spec {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78125rem;
+  margin-top: 0.5rem;
+  letter-spacing: 0.02em;
+}
+.spec td { padding: 0.35rem 0; border-top: 1px dashed var(--rule); vertical-align: top; }
+.spec td:first-child {
+  width: 12rem;
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.6875rem;
+  padding-top: 0.5rem;
+}
+.spec tr:first-child td { border-top: 1px solid var(--rule); }
+.spec tr:last-child td { border-bottom: 1px solid var(--rule); }
+
+section { margin-top: var(--gap); }
+section > .num {
+  display: block;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-bottom: 0.4rem;
+}
+h2 {
+  font-size: clamp(1.125rem, 1.6vw, 1.3125rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+h2 .anchor {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+p { max-width: var(--measure); margin-bottom: 1rem; }
+p:last-child { margin-bottom: 0; }
+strong { font-weight: 700; }
+
+a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink);
+}
+a:hover { color: var(--ember); border-bottom-color: var(--ember); }
+
+code {
+  font: inherit;
+  font-size: 0.94em;
+  background: var(--paper-2);
+  padding: 0.05em 0.35em;
+}
+
+ol, ul { padding-left: 0; max-width: var(--measure); list-style: none; }
+ol li, ul li {
+  margin-bottom: 0.875rem;
+  padding-left: 2.75rem;
+  position: relative;
+  line-height: 1.65;
+}
+ol { counter-reset: item; }
+ol li {
+  counter-increment: item;
+}
+ol li::before {
+  content: counter(item, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  font-weight: 700;
+  font-size: 0.78125rem;
+  letter-spacing: 0.04em;
+  color: var(--ember);
+  width: 2rem;
+}
+ul li::before {
+  content: "—";
+  position: absolute;
+  left: 0.5rem;
+  color: var(--mute);
+}
+
+.code-block {
+  margin-bottom: 1rem;
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+.code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+pre {
+  padding: 0.875rem 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: var(--mono);
+  color: var(--ink);
+}
+pre.ascii {
+  background: transparent;
+  border: 1px solid var(--rule);
+  padding: clamp(0.75rem, 2.5vw, 1.25rem);
+  font-size: clamp(0.7rem, 1.7vw, 0.8125rem);
+  line-height: 1.45;
+  color: var(--ink);
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.diagram {
+  display: block;
+  width: 100%;
+  min-width: 30rem;
+  height: auto;
+  margin-bottom: 0.5rem;
+  font-family: var(--mono);
+  color: var(--ink);
+}
+.diagram .rule { stroke: var(--rule); stroke-width: 1; opacity: 0.5; }
+.diagram .box { fill: none; stroke: var(--rule); stroke-width: 1; }
+.diagram .head {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  fill: var(--mute);
+}
+.diagram .item { font-size: 13px; fill: var(--ink); }
+.diagram .stack { font-size: 12px; fill: var(--mute); font-style: italic; }
+.diagram .flow line { stroke: var(--ember); stroke-width: 1.5; fill: none; }
+.diagram .arrowhead { fill: var(--ember); }
+.diagram .flow-label {
+  font-size: 10px;
+  fill: var(--ember);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.copy-btn {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  font: inherit;
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.copy-btn:hover, .copy-btn:focus-visible { background: var(--ink); color: var(--paper); outline: none; }
+.copy-btn[data-state="copied"] { color: var(--ember); border-color: var(--ember); background: var(--paper); }
+
+.table-scroll {
+  margin: 0 calc(-1 * clamp(0rem, 2vw, 0.5rem));
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+table.cmp {
+  width: 100%;
+  min-width: 30rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+table.cmp th, table.cmp td {
+  text-align: left;
+  padding: 0.625rem 0.875rem;
+  vertical-align: top;
+  border-bottom: 1px dashed var(--rule);
+}
+table.cmp thead th {
+  border-bottom: 1px solid var(--rule);
+  border-top: 1px solid var(--rule);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  background: var(--paper-2);
+}
+table.cmp td:first-child, table.cmp th:first-child {
+  padding-left: 0.875rem;
+  width: 30%;
+  font-weight: 500;
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+}
+table.cmp td:last-child, table.cmp th:last-child { padding-right: 0.875rem; }
+table.cmp .col-self { color: var(--ember); font-weight: 700; }
+table.cmp tbody tr:last-child td { border-bottom: 1px solid var(--rule); }
+
+.fineprint {
+  font-size: 0.75rem;
+  color: var(--mute);
+  margin-top: 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+footer {
+  border-top: 1px solid var(--rule);
+  margin-top: var(--gap);
+  padding: 1.5rem 0;
+  font-size: 0.78125rem;
+  color: var(--mute);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  letter-spacing: 0.04em;
+}
+footer a { color: inherit; border-bottom-color: var(--mute); }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:  #15140f;
+    --paper-2:#1f1d17;
+    --ink:    #ece8dc;
+    --mute:   #908b80;
+    --rule:   #ece8dc;
+    --ember:  #ff5a26;
+  }
+}
+@media print {
+  body { background: white; color: black; font-size: 11pt; line-height: 1.5; }
+  .code-block, pre { background: white; color: black; border: 1px solid black; }
+  a { color: black; border-bottom: 0; text-decoration: underline; }
+  a::after { content: " (" attr(href) ")"; font-size: 0.85em; color: #555; }
+  .copy-btn, .skip { display: none; }
+  section { break-inside: avoid; }
+}
+@media (max-width: 540px) {
+  header.topbar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .topbar .meta { gap: 0.75rem; row-gap: 0.35rem; }
+  .spec td:first-child { width: 8rem; font-size: 0.625rem; }
+  .spec td { padding: 0.4rem 0; }
+  table.cmp { font-size: 0.6875rem; min-width: 0; table-layout: auto; }
+  table.cmp th, table.cmp td { padding: 0.45rem 0.4rem; }
+  table.cmp tbody td { white-space: normal; word-break: normal; overflow-wrap: break-word; }
+  table.cmp thead th {
+    font-size: 0.5rem;
+    letter-spacing: 0.06em;
+    padding: 0.5rem 0.3rem;
+    white-space: nowrap;
+  }
+  table.cmp td:first-child, table.cmp th:first-child {
+    padding-left: 0.55rem;
+    width: 28%;
+    font-size: 0.5625rem;
+    letter-spacing: 0.04em;
+  }
+  table.cmp td:last-child, table.cmp th:last-child { padding-right: 0.55rem; }
+  ol li, ul li { padding-left: 2.25rem; }
+  ol li::before { width: 1.75rem; }
+  footer { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+  .copy-btn { font-size: 0.5625rem; padding: 0.1rem 0.4rem; }
+  pre { font-size: 0.78rem; padding: 0.75rem 0.9rem; }
+  .code-bar { padding: 0.3rem 0.4rem 0.3rem 0.7rem; }
+}
+@media (max-width: 380px) {
+  .topbar .name { letter-spacing: 0.12em; }
+  .spec td:first-child { width: 7rem; }
+  table.cmp { font-size: 0.625rem; }
+  table.cmp th, table.cmp td { padding: 0.4rem 0.25rem; }
+  table.cmp thead th { font-size: 0.4375rem; padding: 0.45rem 0.2rem; }
+  table.cmp td:first-child, table.cmp th:first-child { font-size: 0.5rem; padding-left: 0.4rem; width: 26%; }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip">skip to content</a>
+
+<header class="topbar">
+  <div class="name">libfossil</div>
+  <div class="meta">
+    <span>v <b>0.4.1</b></span>
+    <span>license <b>MIT</b></span>
+    <span><a href="https://github.com/danmestas/libfossil">github</a></span>
+    <span><a href="/docs/">docs</a></span>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="title">
+  <h1>libfossil</h1>
+  <p class="lead">A pure-Go library for Fossil SCM repositories. Zero CGo. Static binaries. WASM-ready.</p>
+  <table class="spec">
+    <tbody>
+      <tr><td>Project</td>      <td>libfossil — pure-Go Fossil SCM library</td></tr>
+      <tr><td>Language</td>     <td>Go (module <code>github.com/danmestas/libfossil</code>)</td></tr>
+      <tr><td>Runtime deps</td> <td>none · pluggable SQLite drivers (modernc · ncruces)</td></tr>
+      <tr><td>Binaries</td>     <td>1 (libfossil CLI)</td></tr>
+      <tr><td>License</td>      <td>MIT</td></tr>
+      <tr><td>Status</td>       <td>v0.4.1 · alpha · breaking changes possible</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <span class="num">§01</span>
+  <h2>Install <span class="anchor">install</span></h2>
+  <div class="code-block">
+    <div class="code-bar">
+      <span>shell</span>
+      <button type="button" class="copy-btn" data-copy="install" aria-label="Copy install command">copy</button>
+    </div>
+    <pre id="install">$ go install github.com/danmestas/dagnats/cmd/dagnats@latest
+$ dagnats serve</pre>
+  </div>
+  <p>That is the entire install. There is no step three. <code>dagnats serve</code> starts an embedded NATS server, the orchestrator, the API, and the trigger system in one process.</p>
+</section>
+
+<section>
+  <span class="num">§02</span>
+  <h2>What it is <span class="anchor">overview</span></h2>
+  <p>dagnats is a Go workflow engine. You describe work as a directed acyclic graph of tasks; dagnats runs the graph, retries failures, recovers from crashes, and reconstructs state from an immutable event log.</p>
+  <p>Its only infrastructure dependency is NATS JetStream, which is embedded in the same process. There is no Postgres to migrate, no Redis to monitor, no separate broker to configure.</p>
+  <p>Two audiences benefit. Backend engineers needing durable workflows that survive restarts get a single binary instead of a small fleet of services. Teams building autonomous coding pipelines get first-class step types &mdash; <code>AgentLoop</code>, <code>Planner</code>, <code>Approval</code>, <code>WaitForEvent</code> &mdash; that other engines treat as application-layer concerns.</p>
+</section>
+
+<section>
+  <span class="num">§03</span>
+  <h2>Why you might want it <span class="anchor">why</span></h2>
+  <ol>
+    <li><strong>One binary, zero external databases.</strong> The deploy is <code>scp dagnats user@host &amp;&amp; ./dagnats serve</code>. No Postgres migrations. No Redis to operate. No broker.</li>
+    <li><strong>Crash-safe by default.</strong> Workflow state is event-sourced into JetStream and snapshotted in KV. Kill the process, start it again, in-flight work resumes from the last event.</li>
+    <li><strong>Agent loops are first-class.</strong> <code>AgentLoop</code>, <code>Planner</code>, <code>Approval</code>, and Continue-As-New are step types in the workflow language &mdash; not patterns you reimplement per project.</li>
+    <li><strong>Inspectable.</strong> Every event is a JSON message on a stream. <code>nats sub "history.&gt;"</code> tails any workflow run live, in any terminal.</li>
+    <li><strong>Bounded.</strong> No unbounded queues. No unbounded retries. No recursion. Every loop has a fixed upper bound. (TigerStyle &mdash; safety first.)</li>
+  </ol>
+</section>
+
+<section>
+  <span class="num">§04</span>
+  <h2>How it fits together <span class="anchor">architecture</span></h2>
+  <div class="table-scroll">
+    <svg class="diagram" viewBox="0 0 640 260" role="img" aria-labelledby="arch-title arch-desc" preserveAspectRatio="xMidYMid meet">
+      <title id="arch-title">dagnats architecture</title>
+      <desc id="arch-desc">Triggers send events to the orchestrator. The orchestrator advances the DAG, dispatches tasks to workers, and receives results back. All workflow state lives in NATS JetStream and KV.</desc>
+
+      <defs>
+        <marker id="dn-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path class="arrowhead" d="M0,0 L10,5 L0,10 Z"/>
+        </marker>
+      </defs>
+
+      <g class="rule">
+        <line x1="40" y1="38" x2="160" y2="38"/>
+        <line x1="240" y1="38" x2="400" y2="38"/>
+        <line x1="480" y1="38" x2="600" y2="38"/>
+      </g>
+
+      <g class="head">
+        <text x="100" y="28" text-anchor="middle">triggers</text>
+        <text x="320" y="28" text-anchor="middle">orchestrator</text>
+        <text x="540" y="28" text-anchor="middle">workers</text>
+      </g>
+
+      <g class="item">
+        <text x="100" y="76" text-anchor="middle">cron</text>
+        <text x="100" y="100" text-anchor="middle">webhook</text>
+        <text x="100" y="124" text-anchor="middle">subject</text>
+      </g>
+
+      <rect class="box" x="240" y="60" width="160" height="100"/>
+      <g class="item">
+        <text x="320" y="88" text-anchor="middle">consume event</text>
+        <text x="320" y="112" text-anchor="middle">advance DAG</text>
+        <text x="320" y="136" text-anchor="middle">snapshot KV</text>
+      </g>
+
+      <rect class="box" x="490" y="60" width="100" height="100"/>
+      <g class="item">
+        <text x="540" y="88" text-anchor="middle">worker</text>
+        <text x="540" y="112" text-anchor="middle">worker</text>
+        <text x="540" y="136" text-anchor="middle">worker</text>
+      </g>
+
+      <rect class="box" x="240" y="200" width="160" height="40"/>
+      <g class="item">
+        <text x="320" y="225" text-anchor="middle">JetStream + KV</text>
+      </g>
+
+      <g class="flow">
+        <line x1="160" y1="100" x2="234" y2="100" marker-end="url(#dn-arrow)"/>
+        <line x1="400" y1="88" x2="486" y2="88" marker-end="url(#dn-arrow)"/>
+        <line x1="490" y1="136" x2="404" y2="136" marker-end="url(#dn-arrow)"/>
+        <line x1="320" y1="160" x2="320" y2="196" marker-end="url(#dn-arrow)"/>
+      </g>
+
+      <g class="flow-label">
+        <text x="197" y="92" text-anchor="middle">events</text>
+        <text x="443" y="80" text-anchor="middle">tasks</text>
+        <text x="447" y="154" text-anchor="middle">results</text>
+        <text x="334" y="183" text-anchor="start">state</text>
+      </g>
+    </svg>
+  </div>
+  <p class="fineprint">All workflow state lives in NATS JetStream + KV &mdash; that is the entire system. There is no separate database.</p>
+</section>
+
+<section>
+  <span class="num">§05</span>
+  <h2>Compared to neighbors <span class="anchor">comparison</span></h2>
+  <div class="table-scroll">
+  <table class="cmp">
+    <thead>
+      <tr>
+        <th></th>
+        <th class="col-self">dagnats</th>
+        <th>Temporal</th>
+        <th>Hatchet</th>
+        <th>Inngest</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Stack</td>         <td class="col-self">NATS only</td>      <td>PG + Cassandra</td> <td>PG + RabbitMQ</td>  <td>PG + Redis</td></tr>
+      <tr><td>Binaries</td>      <td class="col-self">1</td>              <td>~5</td>             <td>~3</td>             <td>hosted</td></tr>
+      <tr><td>OSS</td>           <td class="col-self">yes</td>            <td>yes</td>            <td>yes</td>            <td>partial</td></tr>
+      <tr><td>Native agent steps</td><td class="col-self">yes</td>        <td>no</td>             <td>yes</td>            <td>yes</td></tr>
+      <tr><td>SDKs</td>          <td class="col-self">Go + HTTP bridge</td><td>many</td>          <td>3</td>              <td>3</td></tr>
+      <tr><td>Self-host</td>     <td class="col-self">trivial</td>        <td>involved</td>       <td>moderate</td>       <td>n/a</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="fineprint">Comparison reflects open-source distributions as of writing. Approximate; orientation only.</p>
+</section>
+
+<section>
+  <span class="num">§06</span>
+  <h2>What it is not <span class="anchor">limits</span></h2>
+  <p>dagnats is young. It is single-tenant by design. There is one Go SDK plus an HTTP bridge for everything else; if you need a native TypeScript or Python SDK, you will be writing it.</p>
+  <p>Don't reach for it for sub-millisecond task routing (use a queue). Don't reach for it for embarrassingly-parallel batch jobs without dependencies (use a worker pool). Don't reach for it where eventual consistency would surprise you (use a database with transactions).</p>
+</section>
+
+<section>
+  <span class="num">§07</span>
+  <h2>Get going <span class="anchor">start</span></h2>
+  <div class="code-block">
+    <div class="code-bar">
+      <span>shell</span>
+      <button type="button" class="copy-btn" data-copy="quickstart" aria-label="Copy quickstart commands">copy</button>
+    </div>
+    <pre id="quickstart">$ go install github.com/danmestas/dagnats/cmd/dagnats@latest
+$ dagnats serve                              # one process, embedded NATS
+$ dagnats workflow register hello.json
+$ dagnats run start hello --watch</pre>
+  </div>
+  <p>Walkthrough: <a href="/docs/get-started/">/docs/get-started</a> · Architecture: <a href="/docs/architecture/">/docs/architecture</a> · SDK reference: <a href="/docs/reference/sdk/">/docs/reference/sdk</a> · Source: <a href="https://github.com/danmestas/dagnats">github.com/danmestas/dagnats</a>.</p>
+</section>
+
+</main>
+
+<footer>
+  <div>libfossil &nbsp;·&nbsp; MIT &nbsp;·&nbsp; v0.4.1 &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; <a href="https://github.com/danmestas/libfossil">github.com/danmestas/libfossil</a></div>
+</footer>
+
+<script>
+(function () {
+  var btns = document.querySelectorAll(".copy-btn");
+  btns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var t = document.getElementById(b.dataset.copy);
+      if (!t) return;
+      var s = t.textContent.replace(/^\s*\$\s?/gm, "").replace(/\s+#.*$/gm, "").trim();
+      var done = function () {
+        b.dataset.state = "copied";
+        b.textContent = "copied";
+        setTimeout(function () { b.dataset.state = ""; b.textContent = "copy"; }, 1500);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(s).then(done).catch(function () { b.textContent = "select+copy"; });
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = s;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); done(); } catch (e) { b.textContent = "select+copy"; }
+        document.body.removeChild(ta);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
