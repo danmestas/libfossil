@@ -37,14 +37,14 @@ docs-gen-sdk:
 	gomarkdoc --output docs/site/content/docs/reference/sdk/observer/otel/api.md ./observer/otel/
 	gomarkdoc --output docs/site/content/docs/reference/sdk/dst/api.md           ./dst/
 
-docs-gen-llms:
+docs-gen-llms: docs-gen-sdk
 	bash scripts/gen-llms-txt.sh
 
 docs-serve:
 	cd docs/site && hugo server -D --port 1313
 
-docs-build:
+docs-build: docs-gen-sdk docs-gen-llms
 	cd docs/site && hugo --minify
 
-docs: docs-gen-sdk docs-gen-llms docs-build
+docs: docs-build
 	@echo "=== docs: built into docs/site/public/ ==="
