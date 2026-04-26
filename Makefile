@@ -1,6 +1,6 @@
 GOMARKDOC_VERSION := v1.1.0
 
-.PHONY: test test-drivers test-otel test-all vet build setup-hooks docs-gen-sdk docs-gen-llms
+.PHONY: test test-drivers test-otel test-all vet build setup-hooks docs-gen-sdk docs-gen-llms docs-serve docs-build docs
 
 test:
 	go test ./... -count=1 -timeout=120s
@@ -39,3 +39,12 @@ docs-gen-sdk:
 
 docs-gen-llms:
 	bash scripts/gen-llms-txt.sh
+
+docs-serve:
+	cd docs/site && hugo server -D --port 1313
+
+docs-build:
+	cd docs/site && hugo --minify
+
+docs: docs-gen-sdk docs-gen-llms docs-build
+	@echo "=== docs: built into docs/site/public/ ==="
