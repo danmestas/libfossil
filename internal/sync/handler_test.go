@@ -108,7 +108,10 @@ func TestHandleIGotGimme(t *testing.T) {
 	}
 }
 
-func TestHandleIGotWithoutPull(t *testing.T) {
+// TestHandleIGotWithoutPushOrPull verifies the server does not gimme when
+// the client is neither pushing nor pulling. Without pushOK there is no
+// mandate for the client to send files, so issuing a gimme is wasted.
+func TestHandleIGotWithoutPushOrPull(t *testing.T) {
 	r := setupSyncTestRepo(t)
 
 	req := &xfer.Message{Cards: []xfer.Card{
@@ -121,7 +124,36 @@ func TestHandleIGotWithoutPull(t *testing.T) {
 
 	gimmes := findCards[*xfer.GimmeCard](resp)
 	if len(gimmes) > 0 {
-		t.Fatal("should not gimme without pull card")
+		t.Fatal("should not gimme without push or pull card")
+	}
+}
+
+// TestHandleIGotWithPushOnly verifies the server emits gimme cards when
+// the client is push-only. This is the multi-round push-without-pull case
+// — without it, push-only clients exit after one round even when the
+// server is missing artifacts the client has just announced.
+func TestHandleIGotWithPushOnly(t *testing.T) {
+	r := setupSyncTestRepo(t)
+	unknownUUID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+	req := &xfer.Message{Cards: []xfer.Card{
+		&xfer.PushCard{ServerCode: "test", ProjectCode: "test"},
+		&xfer.IGotCard{UUID: unknownUUID},
+	}}
+	resp, err := HandleSync(context.Background(), r, req)
+	if err != nil {
+		t.Fatalf("HandleSync: %v", err)
+	}
+
+	gimmes := findCards[*xfer.GimmeCard](resp)
+	found := false
+	for _, g := range gimmes {
+		if g.UUID == unknownUUID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected gimme for unknown UUID under push-only")
 	}
 }
 

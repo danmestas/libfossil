@@ -167,27 +167,37 @@ func parseGimme(args []string) (Card, error) {
 	return &GimmeCard{UUID: args[0]}, nil
 }
 
+// parsePush accepts 0, 1, or 2 args. Zero-arg form is a Go-port divergence
+// from fossil-scm/c (whose client always populates g.zPushCode); see
+// encodePush for rationale. Semantically, the verb alone means "no specific
+// codes negotiated" — equivalent to the existing 1- and 2-arg forms after
+// the server's normal arg interpretation.
 func parsePush(args []string) (Card, error) {
 	switch len(args) {
+	case 0:
+		return &PushCard{}, nil
 	case 1:
 		// Fossil sends "push <server-code>" when syncing with a known remote.
 		return &PushCard{ServerCode: args[0]}, nil
 	case 2:
 		return &PushCard{ServerCode: args[0], ProjectCode: args[1]}, nil
 	default:
-		return nil, fmt.Errorf("xfer: push requires 1-2 args, got %d", len(args))
+		return nil, fmt.Errorf("xfer: push requires 0-2 args, got %d", len(args))
 	}
 }
 
+// parsePull accepts 0, 1, or 2 args. See parsePush for the divergence note.
 func parsePull(args []string) (Card, error) {
 	switch len(args) {
+	case 0:
+		return &PullCard{}, nil
 	case 1:
 		// Fossil sends "pull <server-code>" when syncing with a known remote.
 		return &PullCard{ServerCode: args[0]}, nil
 	case 2:
 		return &PullCard{ServerCode: args[0], ProjectCode: args[1]}, nil
 	default:
-		return nil, fmt.Errorf("xfer: pull requires 1-2 args, got %d", len(args))
+		return nil, fmt.Errorf("xfer: pull requires 0-2 args, got %d", len(args))
 	}
 }
 

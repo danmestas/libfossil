@@ -303,6 +303,80 @@ func TestDecode_PushOneArg(t *testing.T) {
 	}
 }
 
+// TestRoundTrip_PushEmptyCodes verifies a PushCard with empty ServerCode
+// and ProjectCode encodes to "push\n" (no trailing spaces) and decodes
+// back to an empty-codes PushCard. Without trailing-empty-arg suppression
+// the wire form would be "push  \n" and the decoder's strings.Fields
+// would collapse adjacent spaces, producing a 0-arg parse error.
+func TestRoundTrip_PushEmptyCodes(t *testing.T) {
+	c := &PushCard{}
+	var buf bytes.Buffer
+	if err := EncodeCard(&buf, c); err != nil {
+		t.Fatalf("EncodeCard: %v", err)
+	}
+	if buf.String() != "push\n" {
+		t.Errorf("wire form = %q, want %q", buf.String(), "push\n")
+	}
+	r := bufio.NewReader(&buf)
+	got, err := DecodeCard(r)
+	if err != nil {
+		t.Fatalf("DecodeCard: %v", err)
+	}
+	push, ok := got.(*PushCard)
+	if !ok {
+		t.Fatalf("decoded type %T, want *PushCard", got)
+	}
+	if push.ServerCode != "" || push.ProjectCode != "" {
+		t.Errorf("decoded = %+v, want empty codes", push)
+	}
+}
+
+// TestRoundTrip_PullEmptyCodes mirrors TestRoundTrip_PushEmptyCodes for pull.
+func TestRoundTrip_PullEmptyCodes(t *testing.T) {
+	c := &PullCard{}
+	var buf bytes.Buffer
+	if err := EncodeCard(&buf, c); err != nil {
+		t.Fatalf("EncodeCard: %v", err)
+	}
+	if buf.String() != "pull\n" {
+		t.Errorf("wire form = %q, want %q", buf.String(), "pull\n")
+	}
+	r := bufio.NewReader(&buf)
+	got, err := DecodeCard(r)
+	if err != nil {
+		t.Fatalf("DecodeCard: %v", err)
+	}
+	pull, ok := got.(*PullCard)
+	if !ok {
+		t.Fatalf("decoded type %T, want *PullCard", got)
+	}
+	if pull.ServerCode != "" || pull.ProjectCode != "" {
+		t.Errorf("decoded = %+v, want empty codes", pull)
+	}
+}
+
+// TestRoundTrip_PushServerCodeOnly verifies that a PushCard with only
+// ServerCode set (no ProjectCode) encodes without a trailing space.
+func TestRoundTrip_PushServerCodeOnly(t *testing.T) {
+	c := &PushCard{ServerCode: "abc123"}
+	var buf bytes.Buffer
+	if err := EncodeCard(&buf, c); err != nil {
+		t.Fatalf("EncodeCard: %v", err)
+	}
+	if buf.String() != "push abc123\n" {
+		t.Errorf("wire form = %q, want %q", buf.String(), "push abc123\n")
+	}
+	r := bufio.NewReader(&buf)
+	got, err := DecodeCard(r)
+	if err != nil {
+		t.Fatalf("DecodeCard: %v", err)
+	}
+	push := got.(*PushCard)
+	if push.ServerCode != "abc123" || push.ProjectCode != "" {
+		t.Errorf("decoded = %+v, want ServerCode=abc123, ProjectCode=\"\"", push)
+	}
+}
+
 func TestDecode_CloneBadArgCount(t *testing.T) {
 	r := bufio.NewReader(strings.NewReader("clone 3\n"))
 	_, err := DecodeCard(r)

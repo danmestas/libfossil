@@ -89,20 +89,41 @@ func encodeGimme(w *bytes.Buffer, c *GimmeCard) error {
 	return nil
 }
 
+// encodePush writes "push [ServerCode [ProjectCode]]\n", omitting trailing
+// empty args so the wire form does not contain consecutive spaces (which
+// strings.Fields collapses on the receiving end).
+//
+// Divergence from fossil-scm/c: the C client always emits both args because
+// g.zPushCode is populated from the repo's project_code at startup. In the
+// Go port, callers may construct SyncOpts{} directly with empty codes
+// (no prior session, fresh repo); accepting fewer args avoids a wire-form
+// arg-count mismatch. parsePush mirrors this on the decoder side.
 func encodePush(w *bytes.Buffer, c *PushCard) error {
-	w.WriteString("push ")
-	w.WriteString(c.ServerCode)
-	w.WriteByte(' ')
-	w.WriteString(c.ProjectCode)
+	w.WriteString("push")
+	if c.ServerCode != "" {
+		w.WriteByte(' ')
+		w.WriteString(c.ServerCode)
+		if c.ProjectCode != "" {
+			w.WriteByte(' ')
+			w.WriteString(c.ProjectCode)
+		}
+	}
 	w.WriteByte('\n')
 	return nil
 }
 
+// encodePull writes "pull [ServerCode [ProjectCode]]\n", omitting trailing
+// empty args. See encodePush for the divergence rationale.
 func encodePull(w *bytes.Buffer, c *PullCard) error {
-	w.WriteString("pull ")
-	w.WriteString(c.ServerCode)
-	w.WriteByte(' ')
-	w.WriteString(c.ProjectCode)
+	w.WriteString("pull")
+	if c.ServerCode != "" {
+		w.WriteByte(' ')
+		w.WriteString(c.ServerCode)
+		if c.ProjectCode != "" {
+			w.WriteByte(' ')
+			w.WriteString(c.ProjectCode)
+		}
+	}
 	w.WriteByte('\n')
 	return nil
 }

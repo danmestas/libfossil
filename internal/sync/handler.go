@@ -9,6 +9,7 @@ import (
 	"github.com/danmestas/libfossil/internal/auth"
 	"github.com/danmestas/libfossil/internal/blob"
 	"github.com/danmestas/libfossil/internal/content"
+	"github.com/danmestas/libfossil/internal/manifest"
 	"github.com/danmestas/libfossil/internal/repo"
 	"github.com/danmestas/libfossil/internal/xfer"
 
@@ -178,6 +179,21 @@ func (h *handler) process(_ context.Context, req *xfer.Message) (*xfer.Message, 
 		return nil, err
 	}
 
+	// Crosslink any newly-received manifests into the relational tables
+	// (event/leaf/plink/mlink/tagxref). Without this the receiving repo
+	// stores blobs durably but exposes nothing on the timeline, fork
+	// detection sees stale leaf state, and the clone protocol cannot
+	// traverse manifest parents (mlink is empty) — symptoms documented
+	// in agent-infra trial 2026-04-25 finding #3.
+	//
+	// Only walk the crosslink scanner when we accepted files this round;
+	// pure pull/igot rounds add nothing relational to update.
+	if h.filesRecvd > 0 {
+		if _, err := manifest.Crosslink(h.repo); err != nil {
+			return nil, fmt.Errorf("HandleSync: crosslink: %w", err)
+		}
+	}
+
 	return &xfer.Message{Cards: h.resp}, nil
 }
 
@@ -339,9 +355,6 @@ func (h *handler) handleIGot(c *xfer.IGotCard) error {
 	if c == nil {
 		panic("handler.handleIGot: c must not be nil")
 	}
-	if !h.pullOK {
-		return nil
-	}
 	_, exists := blob.Exists(h.repo.DB(), c.UUID)
 	if exists {
 		// Record that the client has this blob so emitIGots can skip it.
@@ -350,6 +363,18 @@ func (h *handler) handleIGot(c *xfer.IGotCard) error {
 			h.remoteHas = make(map[string]remoteHasEntry)
 		}
 		h.remoteHas[c.UUID] = remoteHasEntry{isPrivate: c.IsPrivate}
+		return nil
+	}
+	// Server requests the missing blob whenever either side has expressed
+	// interest in transferring data. Pre-fix this gate was just !pullOK,
+	// which silently dropped server gimmes when a client called
+	// SyncOpts{Push:true, Pull:false}: the client emits igot cards from
+	// sendUnclustered every round regardless of Pull, so the server
+	// would see the announcements but never request the blobs and the
+	// loop would converge with the server holding only what the client
+	// pushed proactively. Mirrors fossil-scm/c xfer.c, which generates
+	// gimmes from igot cards as long as either direction is active.
+	if !h.pushOK && !h.pullOK {
 		return nil
 	}
 	if c.IsPrivate && !h.syncPrivate {
