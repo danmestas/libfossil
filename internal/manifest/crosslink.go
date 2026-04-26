@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"fmt"
+	"log/slog"
 
 	libfossil "github.com/danmestas/libfossil/internal/fsltype"
 	"github.com/danmestas/libfossil/internal/blob"
@@ -64,6 +65,7 @@ func Crosslink(r *repo.Repo) (int, error) {
 	}
 
 	linked := 0
+	deferred := 0
 	var pending []pendingItem
 	for _, c := range candidates {
 		data, err := content.Expand(r.DB(), c.rid)
@@ -74,6 +76,36 @@ func Crosslink(r *repo.Repo) (int, error) {
 		d, err := deck.Parse(data)
 		if err != nil {
 			continue // not a valid manifest, skip
+		}
+
+		// Defer Checkin manifests whose referenced file blobs (F-cards) or
+		// delta baseline (B-card) haven't all arrived locally yet. The
+		// manifest blob remains durable in 'blob'; we just skip writing
+		// event/leaf/plink/mlink in this sweep so a downstream
+		// Checkout.Update walking the manifest's F-cards via
+		// manifest.ListFiles doesn't hit
+		// `expandUUID: blob not found for uuid <hex>` mid-traversal.
+		//
+		// Surfaced by agent-infra trial #10 under 16-way concurrent
+		// fork+merge: a leaf Pulled a multi-blob session in which the
+		// merge manifest landed before its file blobs, the original
+		// crosslink ran with insertCheckinMlinks silently skipping
+		// missing-blob F-cards, and the next Update on that leaf failed.
+		// The next sync round that delivers the missing blob also
+		// triggers another Crosslink sweep (HandleSync runs Crosslink
+		// whenever filesRecvd > 0); the candidate query selects this
+		// rid again because no event row was written, and the Checkin
+		// crosslinks completely.
+		if d.Type == deck.Checkin {
+			if missing := missingCheckinRefs(r, d); len(missing) > 0 {
+				deferred++
+				slog.Debug("manifest.Crosslink: deferring checkin",
+					"rid", c.rid,
+					"uuid", c.uuid,
+					"missing_count", len(missing),
+					"first_missing", missing[0])
+				continue
+			}
 		}
 
 		var linkErr error
@@ -107,12 +139,76 @@ func Crosslink(r *repo.Repo) (int, error) {
 		pending = append(pending, p...)
 	}
 
+	if deferred > 0 {
+		slog.Info("manifest.Crosslink: deferred checkins awaiting missing blobs",
+			"deferred", deferred,
+			"linked", linked)
+	}
+
 	// Pass 2: Process pending items (wiki backlinks, ticket rebuilds).
 	for _, item := range pending {
 		_ = item // Stubs return nil, nothing to process yet.
 	}
 
 	return linked, nil
+}
+
+// missingCheckinRefs returns the list of UUIDs referenced by a Checkin
+// manifest whose blobs are not yet present locally. References checked:
+//   - B-card: the baseline manifest UUID for delta manifests. Without
+//     the baseline, ListFiles cannot resolve the effective F-card set.
+//   - F-cards: every (non-deleted) file UUID. These are the targets
+//     Checkout.Update.expandUUID will need.
+//
+// Empty result means crosslink is safe to run; non-empty means defer
+// to a later sweep that will discover the manifest again (no event row
+// was written, so the candidate query re-selects this rid).
+//
+// Divergence from fossil-scm/c: fossil's reference uses an `rcvfrom`
+// table + deferred-flush at content arrival; the Go port reuses the
+// existing whole-repo sweep semantics by checking presence at sweep
+// time. The candidate query naturally re-discovers deferred manifests
+// because we do not write any event/leaf/plink/mlink/tagxref rows for
+// them.
+func missingCheckinRefs(r *repo.Repo, d *deck.Deck) []string {
+	if r == nil {
+		panic("manifest.missingCheckinRefs: r must not be nil")
+	}
+	if d == nil {
+		panic("manifest.missingCheckinRefs: d must not be nil")
+	}
+	var missing []string
+	seen := make(map[string]struct{})
+	check := func(uuid string) {
+		if uuid == "" {
+			return
+		}
+		if _, dup := seen[uuid]; dup {
+			return
+		}
+		seen[uuid] = struct{}{}
+		if !blobPresent(r, uuid) {
+			missing = append(missing, uuid)
+		}
+	}
+	check(d.B)
+	for _, f := range d.F {
+		check(f.UUID) // skipped if "" (deleted file in delta manifest)
+	}
+	return missing
+}
+
+// blobPresent reports whether the named UUID corresponds to a non-phantom
+// blob locally. blob.Exists returns true for phantoms (size = -1), which
+// content.Expand rejects, so we filter those out — a phantom blob row is
+// not "present" for crosslink purposes.
+func blobPresent(r *repo.Repo, uuid string) bool {
+	var size int64
+	err := r.DB().QueryRow("SELECT size FROM blob WHERE uuid=?", uuid).Scan(&size)
+	if err != nil {
+		return false
+	}
+	return size >= 0
 }
 
 func crosslinkCheckin(r *repo.Repo, rid libfossil.FslID, d *deck.Deck) error {
