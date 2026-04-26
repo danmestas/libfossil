@@ -104,5 +104,7 @@ _, err := repo.Pull(context.Background(), "https://example.com/repo.fossil", lib
 ## Next steps
 
 - [Architecture](../architecture) — how the pieces fit
+- [Production patterns](../production) — error handling, context, telemetry beyond `log.Fatal`
+- [Extension Points](../extension-points) — observers for telemetry, custom SQLite drivers
 - [Migration from Fossil](../migration-from-fossil) — command mapping from upstream
 - [SDK reference](../reference/sdk) — every package, every exported symbol

@@ -10,6 +10,8 @@ pure-Go implementation of the Fossil repository format and sync protocol.
 It is intentionally honest about gaps. If a capability is not listed under
 "Command coverage" below, assume it is not implemented yet.
 
+For a structural overview of how libfossil is organised — the package layout, storage model, and pluggable axes — see [Architecture](./architecture).
+
 ## Repo format compatibility
 
 `libfossil` reads and writes the same on-disk `.fossil` SQLite repository

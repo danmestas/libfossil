@@ -3,6 +3,68 @@ title: Architecture
 weight: 20
 ---
 
+<svg viewBox="0 0 640 260" role="img" aria-labelledby="arch-title arch-desc" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto;margin:0 auto 1.5rem;color:currentColor;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;max-width:720px">
+  <title id="arch-title">libfossil architecture</title>
+  <desc id="arch-desc">Callers (cli, library, wasm) invoke methods on the Repo handle. The Repo delegates to three pluggable axes: db driver, transport, observer. Repository state lives on disk in a .fossil SQLite file.</desc>
+  <style>
+    .a-rule { stroke: currentColor; stroke-width: 1; opacity: 0.4; }
+    .a-box  { fill: none; stroke: currentColor; stroke-width: 1; opacity: 0.7; }
+    .a-head { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; opacity: 0.65; }
+    .a-item { font-size: 13px; }
+    .a-flow line { stroke: #c63a0f; stroke-width: 1.5; fill: none; }
+    .a-arrow { fill: #c63a0f; }
+    .a-flow-label { font-size: 10px; fill: #c63a0f; letter-spacing: 0.6px; text-transform: uppercase; }
+  </style>
+  <defs>
+    <marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="a-arrow" d="M0,0 L10,5 L0,10 Z"/>
+    </marker>
+  </defs>
+  <g class="a-rule">
+    <line x1="40" y1="38" x2="160" y2="38"/>
+    <line x1="240" y1="38" x2="400" y2="38"/>
+    <line x1="480" y1="38" x2="600" y2="38"/>
+  </g>
+  <g class="a-head" fill="currentColor">
+    <text x="100" y="28" text-anchor="middle">callers</text>
+    <text x="320" y="28" text-anchor="middle">core</text>
+    <text x="540" y="28" text-anchor="middle">plugins</text>
+  </g>
+  <g class="a-item" fill="currentColor">
+    <text x="100" y="76" text-anchor="middle">cli</text>
+    <text x="100" y="100" text-anchor="middle">library</text>
+    <text x="100" y="124" text-anchor="middle">wasm</text>
+  </g>
+  <rect class="a-box" x="240" y="60" width="160" height="100"/>
+  <g class="a-item" fill="currentColor">
+    <text x="320" y="88" text-anchor="middle">Open</text>
+    <text x="320" y="112" text-anchor="middle">Sync</text>
+    <text x="320" y="136" text-anchor="middle">Timeline</text>
+  </g>
+  <rect class="a-box" x="490" y="60" width="100" height="100"/>
+  <g class="a-item" fill="currentColor">
+    <text x="540" y="88" text-anchor="middle">db driver</text>
+    <text x="540" y="112" text-anchor="middle">transport</text>
+    <text x="540" y="136" text-anchor="middle">observer</text>
+  </g>
+  <rect class="a-box" x="240" y="200" width="160" height="40"/>
+  <g class="a-item" fill="currentColor">
+    <text x="320" y="225" text-anchor="middle">.fossil (SQLite)</text>
+  </g>
+  <g class="a-flow">
+    <line x1="160" y1="100" x2="234" y2="100" marker-end="url(#arch-arrow)"/>
+    <line x1="400" y1="88" x2="486" y2="88" marker-end="url(#arch-arrow)"/>
+    <line x1="490" y1="136" x2="404" y2="136" marker-end="url(#arch-arrow)"/>
+    <line x1="320" y1="160" x2="320" y2="196" marker-end="url(#arch-arrow)"/>
+  </g>
+  <g class="a-flow-label">
+    <text x="197" y="92" text-anchor="middle">calls</text>
+    <text x="443" y="80" text-anchor="middle">delegate</text>
+    <text x="447" y="154" text-anchor="middle">events</text>
+    <text x="334" y="183" text-anchor="start">persist</text>
+  </g>
+</svg>
+
 ## Overview
 
 libfossil is a pure-Go library and CLI that reads and writes Fossil SCM's
@@ -134,6 +196,9 @@ start/end, per-round stats, extract/scan/commit phases). `NopSyncObserver`
 For OpenTelemetry, [`observer/otel`](https://github.com/danmestas/libfossil/tree/main/observer/otel/) is a separate Go
 module so the core doesn't pull in the OTel SDK. Users import it
 explicitly when they want traces, metrics, or structured logs.
+
+See [Extension Points](./extension-points) for the full observer
+contract and a worked example of a custom observer.
 
 ## DST / simulation
 
