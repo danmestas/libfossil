@@ -34,6 +34,8 @@ menu:
         icon: github
 
 params:
+  version: "0.4.2"
+
   navbar:
     displayTitle: true
     displayLogo: false

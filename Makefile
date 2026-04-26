@@ -36,6 +36,7 @@ docs-gen-sdk:
 	gomarkdoc --output docs/site/content/docs/reference/sdk/db/api.md            ./db/
 	gomarkdoc --output docs/site/content/docs/reference/sdk/observer/otel/api.md ./observer/otel/
 	gomarkdoc --output docs/site/content/docs/reference/sdk/dst/api.md           ./dst/
+	bash scripts/prepend-sdk-frontmatter.sh
 
 docs-gen-llms: docs-gen-sdk
 	bash scripts/gen-llms-txt.sh
