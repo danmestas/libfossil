@@ -35,6 +35,11 @@ func Crosslink(r *repo.Repo) (int, error) {
 	}
 
 	// Pass 1: Discover and crosslink all uncrosslinked artifacts.
+	// ORDER BY b.rid: deferred manifests re-discovered across sweeps must
+	// be processed in stable order. Without it, two syncs delivering the
+	// same blobs in different arrival orders could produce divergent
+	// per-defer slog streams and pending-item processing orders, masking
+	// determinism bugs in downstream code.
 	rows, err := r.DB().Query(`
 		SELECT b.rid, b.uuid FROM blob b
 		WHERE b.size >= 0
@@ -42,6 +47,7 @@ func Crosslink(r *repo.Repo) (int, error) {
 		  AND NOT EXISTS (SELECT 1 FROM tagxref tx WHERE tx.srcid = b.rid)
 		  AND NOT EXISTS (SELECT 1 FROM forumpost fp WHERE fp.fpid = b.rid)
 		  AND NOT EXISTS (SELECT 1 FROM attachment a WHERE a.attachid = b.rid)
+		ORDER BY b.rid
 	`)
 	if err != nil {
 		return 0, fmt.Errorf("manifest.Crosslink query: %w", err)
