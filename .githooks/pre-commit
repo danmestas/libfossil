@@ -39,11 +39,19 @@ run_test "cmd/libfossil" go build ./cmd/libfossil/
 echo "=== pre-commit: docs SDK drift ==="
 # Skip gracefully if gomarkdoc cannot be installed (fresh clone, offline, etc.).
 # Use the pinned version from Makefile so the check is deterministic across environments.
+GOMARKDOC_VERSION=$(awk -F':= *' '/^GOMARKDOC_VERSION/ {print $2; exit}' Makefile 2>/dev/null)
+GOMARKDOC_VERSION=${GOMARKDOC_VERSION:-latest}
 if ! command -v gomarkdoc >/dev/null 2>&1; then
-	GOMARKDOC_VERSION=$(awk -F':= *' '/^GOMARKDOC_VERSION/ {print $2; exit}' Makefile 2>/dev/null)
-	GOMARKDOC_VERSION=${GOMARKDOC_VERSION:-latest}
 	if ! go install "github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}" 2>/dev/null; then
 		echo "  gomarkdoc: SKIPPED (install failed; commit allowed)"
+	fi
+else
+	# Reinstall if locally-installed gomarkdoc is the wrong version. Best-effort;
+	# tolerate failure so contributors can commit offline. Note: gomarkdoc --version
+	# output format is e.g. "gomarkdoc v1.1.0"; we extract the last whitespace-separated token.
+	_gm_installed=$(gomarkdoc --version 2>/dev/null | awk '{print $NF}')
+	if [ "$_gm_installed" != "$GOMARKDOC_VERSION" ] && [ "$GOMARKDOC_VERSION" != "latest" ]; then
+		go install "github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}" >/dev/null 2>&1 || true
 	fi
 fi
 if command -v gomarkdoc >/dev/null 2>&1; then
