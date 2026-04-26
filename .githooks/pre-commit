@@ -36,4 +36,31 @@ run_test "otel sub-module" sh -c "cd observer/otel && GOWORK=off go test ./... -
 echo "=== pre-commit: build libfossil binary ==="
 run_test "cmd/libfossil" go build ./cmd/libfossil/
 
+echo "=== pre-commit: docs SDK drift ==="
+# Skip gracefully if gomarkdoc cannot be installed (fresh clone, offline, etc.).
+# Use the pinned version from Makefile so the check is deterministic across environments.
+if ! command -v gomarkdoc >/dev/null 2>&1; then
+	GOMARKDOC_VERSION=$(awk -F':= *' '/^GOMARKDOC_VERSION/ {print $2; exit}' Makefile 2>/dev/null)
+	GOMARKDOC_VERSION=${GOMARKDOC_VERSION:-latest}
+	if ! go install "github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}" 2>/dev/null; then
+		echo "  gomarkdoc: SKIPPED (install failed; commit allowed)"
+	fi
+fi
+if command -v gomarkdoc >/dev/null 2>&1; then
+	if make -s docs-gen-sdk >/dev/null 2>&1; then
+		if git diff --quiet -- docs/site/content/docs/reference/sdk; then
+			echo "  SDK pages: in sync"
+		else
+			echo "  SDK pages: OUT OF DATE"
+			echo ""
+			echo "  Run 'make docs-gen-sdk' and commit the result."
+			echo ""
+			git diff --stat -- docs/site/content/docs/reference/sdk
+			exit 1
+		fi
+	else
+		echo "  docs-gen-sdk: SKIPPED (target not available)"
+	fi
+fi
+
 echo "=== pre-commit: all passed ==="
