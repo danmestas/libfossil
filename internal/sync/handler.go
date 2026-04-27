@@ -443,6 +443,9 @@ func (h *handler) handleFile(uuid, deltaSrc string, payload []byte) error {
 		return nil
 	}
 	rid, ok := blob.Exists(h.repo.DB(), uuid)
+	if h.buggify != nil && h.buggify.Check("handler.handleFile.missingAfterStore", 0.01) {
+		ok = false
+	}
 	if !ok {
 		h.resp = append(h.resp, &xfer.ErrorCard{
 			Message: fmt.Sprintf("blob %s missing after store", uuid),
