@@ -320,10 +320,11 @@ ci-otel:
 
 **edgesync** (mirrors `ci.yml` + `test.yml`): targets `ci-vet`, `ci-leaf-bridge`, `ci-cmd`, `ci-sim`. Exact commands extracted verbatim from each step's `run:` block.
 
-**bones** (mirrors `ci.yml`):
+**bones** (mirrors the bones-side portion of `ci.yml`; cross-repo leaf-binary integration is CI-only):
 
 ```make
 ci:
+	$(MAKE) check
 	go build -tags=otel ./...
 	go test -tags=otel -short ./... -count=1
 ```

@@ -111,7 +111,7 @@ Expected: switched to a new branch.
 
 ### Task 1.1: Add `make ci` target
 
-bones' CI workflow runs `go build -tags=otel ./...` and `go test -tags=otel -short ./...`. Mirror exactly.
+bones' CI workflow (`.github/workflows/ci.yml`) runs the discipline suite via `make check` (fmt-check + vet + lint + race + todo-check), then otel-tagged build, then otel-tagged short tests. The cross-repo leaf-binary integration step (sibling EdgeSync checkout + `make leaf`) is **CI-only** and intentionally not mirrored locally — it requires a sibling working directory layout that doesn't generalize.
 
 **Files:** Modify `Makefile`
 
@@ -121,13 +121,16 @@ Append to the end of `/Users/dmestas/projects/bones/Makefile`:
 
 ```makefile
 
-# CI mirror — must match .github/workflows/ci.yml verbatim.
+# CI mirror — runs the bones-side portion of .github/workflows/ci.yml.
+# Cross-repo leaf-binary integration (requires sibling EdgeSync checkout)
+# is CI-only and not mirrored here.
 .PHONY: ci ci-fast
 ci:
+	$(MAKE) check
 	go build -tags=otel ./...
 	go test -tags=otel -short ./... -count=1
 
-# Fast subset for pre-push hook (~30-60s; no -tags=otel, no -race).
+# Fast subset for pre-push hook (~30-60s; no make check, no -tags=otel, no -race).
 ci-fast:
 	go vet ./...
 	go build ./...
