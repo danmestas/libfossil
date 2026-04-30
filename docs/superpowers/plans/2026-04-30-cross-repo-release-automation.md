@@ -1109,17 +1109,20 @@ jobs:
           PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
           PAYLOAD_RELEASE_URL: ${{ github.event.client_payload.release_url }}
           PAYLOAD_TAG_SHA: ${{ github.event.client_payload.tag_sha }}
+          PAYLOAD_ACTOR: ${{ github.event.client_payload.actor }}
           INPUT_REPO: ${{ inputs.repo }}
           INPUT_MODULE: ${{ inputs.module_path }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_RELEASE_URL: ${{ inputs.release_url }}
           INPUT_TAG_SHA: ${{ inputs.tag_sha }}
+          INPUT_ACTOR: ${{ inputs.actor }}
         run: |
           REPO="${PAYLOAD_REPO:-$INPUT_REPO}"
           MODULE_PATH="${PAYLOAD_MODULE:-$INPUT_MODULE}"
           VERSION="${PAYLOAD_VERSION:-$INPUT_VERSION}"
           RELEASE_URL="${PAYLOAD_RELEASE_URL:-$INPUT_RELEASE_URL}"
           TAG_SHA="${PAYLOAD_TAG_SHA:-$INPUT_TAG_SHA}"
+          ACTOR="${PAYLOAD_ACTOR:-${INPUT_ACTOR:-${{ github.actor }}}}"
 
           if [[ "$REPO" != "$EXPECTED_REPO" ]]; then
             echo "::notice::Ignoring dispatch for repo=$REPO (expected $EXPECTED_REPO)"
@@ -1141,6 +1144,7 @@ jobs:
             echo "version=$VERSION"
             echo "release_url=$RELEASE_URL"
             echo "tag_sha=$TAG_SHA"
+            echo "actor=$ACTOR"
             echo "branch=chore/bump-${REPO}-${VERSION}"
           } >> "$GITHUB_OUTPUT"
 
@@ -1175,7 +1179,20 @@ jobs:
           VERSION: ${{ steps.in.outputs.version }}
         run: |
           git switch -c "$BRANCH"
-          go get "${MODULE}@${VERSION}"
+          # GOPROXY can lag the upstream tag push by a few seconds; retry
+          # before giving up so transient propagation lag self-recovers.
+          for i in 1 2 3; do
+            if go get "${MODULE}@${VERSION}"; then
+              break
+            fi
+            if [ "$i" -lt 3 ]; then
+              echo "::notice::go get failed (attempt $i/3) — likely GOPROXY propagation race; retrying in 15s..."
+              sleep 15
+            else
+              echo "::error::go get failed after 3 attempts"
+              exit 1
+            fi
+          done
           go mod tidy
           if git diff --quiet go.mod go.sum; then
             echo "::notice::No-op bump — version already pinned"
@@ -1196,6 +1213,7 @@ jobs:
           MODULE: ${{ steps.in.outputs.module }}
           RELEASE_URL: ${{ steps.in.outputs.release_url }}
           TAG_SHA: ${{ steps.in.outputs.tag_sha }}
+          ACTOR: ${{ steps.in.outputs.actor }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -1210,6 +1228,7 @@ jobs:
           - Version: \`${VERSION}\`
           - Upstream release: ${RELEASE_URL}
           - Tag SHA: \`${TAG_SHA}\`
+          - Triggered by: @${ACTOR}
 
           CI must pass before merge. Review go.sum diff for transitive surprises."
 ```
@@ -1519,17 +1538,20 @@ jobs:
           PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
           PAYLOAD_RELEASE_URL: ${{ github.event.client_payload.release_url }}
           PAYLOAD_TAG_SHA: ${{ github.event.client_payload.tag_sha }}
+          PAYLOAD_ACTOR: ${{ github.event.client_payload.actor }}
           INPUT_REPO: ${{ inputs.repo }}
           INPUT_MODULE: ${{ inputs.module_path }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_RELEASE_URL: ${{ inputs.release_url }}
           INPUT_TAG_SHA: ${{ inputs.tag_sha }}
+          INPUT_ACTOR: ${{ inputs.actor }}
         run: |
           REPO="${PAYLOAD_REPO:-$INPUT_REPO}"
           MODULE_PATH="${PAYLOAD_MODULE:-$INPUT_MODULE}"
           VERSION="${PAYLOAD_VERSION:-$INPUT_VERSION}"
           RELEASE_URL="${PAYLOAD_RELEASE_URL:-$INPUT_RELEASE_URL}"
           TAG_SHA="${PAYLOAD_TAG_SHA:-$INPUT_TAG_SHA}"
+          ACTOR="${PAYLOAD_ACTOR:-${INPUT_ACTOR:-${{ github.actor }}}}"
 
           if [[ "$REPO" != "$EXPECTED_REPO" ]]; then
             echo "::notice::Ignoring dispatch for repo=$REPO (expected $EXPECTED_REPO)"
@@ -1551,6 +1573,7 @@ jobs:
             echo "version=$VERSION"
             echo "release_url=$RELEASE_URL"
             echo "tag_sha=$TAG_SHA"
+            echo "actor=$ACTOR"
             echo "branch=chore/bump-${REPO}-${VERSION}"
           } >> "$GITHUB_OUTPUT"
 
@@ -1585,7 +1608,20 @@ jobs:
           VERSION: ${{ steps.in.outputs.version }}
         run: |
           git switch -c "$BRANCH"
-          go get "${MODULE}@${VERSION}"
+          # GOPROXY can lag the upstream tag push by a few seconds; retry
+          # before giving up so transient propagation lag self-recovers.
+          for i in 1 2 3; do
+            if go get "${MODULE}@${VERSION}"; then
+              break
+            fi
+            if [ "$i" -lt 3 ]; then
+              echo "::notice::go get failed (attempt $i/3) — likely GOPROXY propagation race; retrying in 15s..."
+              sleep 15
+            else
+              echo "::error::go get failed after 3 attempts"
+              exit 1
+            fi
+          done
           go mod tidy
           if git diff --quiet go.mod go.sum; then
             echo "::notice::No-op bump — version already pinned"
@@ -1606,6 +1642,7 @@ jobs:
           MODULE: ${{ steps.in.outputs.module }}
           RELEASE_URL: ${{ steps.in.outputs.release_url }}
           TAG_SHA: ${{ steps.in.outputs.tag_sha }}
+          ACTOR: ${{ steps.in.outputs.actor }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -1620,6 +1657,7 @@ jobs:
           - Version: \`${VERSION}\`
           - Upstream release: ${RELEASE_URL}
           - Tag SHA: \`${TAG_SHA}\`
+          - Triggered by: @${ACTOR}
 
           CI must pass before merge. Review go.sum diff for transitive surprises."
 ```

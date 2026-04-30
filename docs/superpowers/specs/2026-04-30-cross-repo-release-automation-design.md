@@ -183,7 +183,7 @@ Each repo additionally gains:
 |---------|---------|----------|
 | `DISPATCH_PAT` expired | Sender's dispatch step fails; tag + release still created | Rotate PAT, manually fire via `gh workflow run bump-upstream.yml` |
 | Receiver workflow broken | No PR opens after upstream tag | Manually bump go.mod, fix workflow on a separate PR |
-| `go get` fails (module proxy lag) | Workflow fails in "Bump module" step | Re-fire via `workflow_dispatch` after a few minutes |
+| `go get` fails (module proxy lag) | Receiver auto-retries 3× with 15s backoff; if still failing, workflow fails in "Bump module" step | Re-fire via `workflow_dispatch` after a few minutes (most cases self-recover) |
 | Bad tag pushed (force-move) | `tag_sha` in PR body shows the old SHA | Reviewer notices in PR body before merging |
 
 ## Receiver workflow (`bump-upstream.yml`)
@@ -261,7 +261,13 @@ jobs:
         id: bump
         run: |
           git switch -c "${{ steps.in.outputs.branch }}"
-          go get "${{ steps.in.outputs.module }}@${{ steps.in.outputs.version }}"
+          # GOPROXY can lag the upstream tag push; retry before giving up.
+          for i in 1 2 3; do
+            if go get "${{ steps.in.outputs.module }}@${{ steps.in.outputs.version }}"; then
+              break
+            fi
+            [ "$i" -lt 3 ] && sleep 15 || { echo "::error::go get failed after 3 attempts"; exit 1; }
+          done
           go mod tidy
           if git diff --quiet go.mod go.sum; then
             echo "::notice::No-op bump — version already pinned"
