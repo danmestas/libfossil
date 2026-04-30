@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/danmestas/libfossil/internal/auth"
 	"github.com/danmestas/libfossil/internal/blob"
@@ -18,6 +20,28 @@ import (
 
 // DefaultCloneBatchSize is the number of blobs sent per clone round.
 const DefaultCloneBatchSize = 200
+
+// cloneCapPrefix tags a CookieCard value that carries the upper rid bound
+// of a clone session. The handler captures max(rid) on the first clone round
+// and echoes it via CookieCard; the client returns it on every subsequent
+// round so the (otherwise stateless) server can scope its blob query and
+// converge even if the hub is being written to during the clone session.
+const cloneCapPrefix = "lf-clone-cap:"
+
+// parseCloneCap returns the snapshot rid encoded in a CookieCard value,
+// or (0, false) if the value isn't a clone-cap cookie. Non-matching
+// cookies (e.g. arbitrary sync session cookies) leave the bound at zero,
+// which preserves pre-snapshot behavior for forward/back compat.
+func parseCloneCap(v string) (int, bool) {
+	if !strings.HasPrefix(v, cloneCapPrefix) {
+		return 0, false
+	}
+	rid, err := strconv.Atoi(v[len(cloneCapPrefix):])
+	if err != nil || rid < 0 {
+		return 0, false
+	}
+	return rid, true
+}
 
 // HandleFunc is the server-side sync handler signature.
 // Transport listeners call this with decoded requests and write back the response.
@@ -90,6 +114,7 @@ type handler struct {
 	pullOK        bool // client sent a valid pull card
 	cloneMode     bool // client sent a clone card
 	cloneSeq      int  // clone_seqno cursor from client
+	cloneSnapMax  int  // upper rid bound for this clone session (from cookie); 0 = capture fresh in emitCloneBatch
 	uvCatalogSent bool // true after sending UV catalog
 	reqClusters   bool // client sent pragma req-clusters
 	filesSent     int  // files sent in response (for observer)
@@ -306,6 +331,12 @@ func (h *handler) handleControlCard(card xfer.Card) {
 		}
 	case *xfer.CloneSeqNoCard:
 		h.cloneSeq = c.SeqNo
+	case *xfer.CookieCard:
+		// Clone clients echo the cap cookie on every round. Sync sessions also
+		// use cookies opaquely; non-matching values leave cloneSnapMax at zero.
+		if rid, ok := parseCloneCap(c.Value); ok {
+			h.cloneSnapMax = rid
+		}
 	case *xfer.SchemaCard:
 		h.handleSchemaCard(c)
 	}
@@ -611,6 +642,21 @@ func (h *handler) sendAllClusters() error {
 }
 
 func (h *handler) emitCloneBatch() error {
+	// Capture the snapshot bound on the first round of a clone session.
+	// Without this, the open-ended "rid > cursor" query keeps picking up
+	// blobs that other writers commit between rounds, the completion sentinel
+	// CloneSeqNoCard{SeqNo:0} never fires, and the client loops to MaxRounds
+	// (issue #17). The bound rides back to the client via CookieCard and
+	// gets echoed on every subsequent round.
+	if h.cloneSnapMax == 0 {
+		var maxRid int
+		if err := h.repo.DB().QueryRow("SELECT COALESCE(MAX(rid), 0) FROM blob WHERE size >= 0").Scan(&maxRid); err != nil {
+			return fmt.Errorf("handler: capture clone snapshot: %w", err)
+		}
+		h.cloneSnapMax = maxRid
+		h.resp = append(h.resp, &xfer.CookieCard{Value: fmt.Sprintf("%s%d", cloneCapPrefix, maxRid)})
+	}
+
 	batchSize := DefaultCloneBatchSize
 	// BUGGIFY: 10% chance reduce batch size to 1 to stress pagination.
 	if h.buggify != nil && h.buggify.Check("handler.emitCloneBatch.smallBatch", 0.10) {
@@ -619,8 +665,8 @@ func (h *handler) emitCloneBatch() error {
 	truncate := h.buggify != nil && h.buggify.Check("clone.emitCloneBatch.truncate", 0.10)
 
 	rows, err := h.repo.DB().Query(
-		"SELECT rid, uuid FROM blob WHERE rid > ? AND size >= 0 ORDER BY rid",
-		h.cloneSeq,
+		"SELECT rid, uuid FROM blob WHERE rid > ? AND rid <= ? AND size >= 0 ORDER BY rid",
+		h.cloneSeq, h.cloneSnapMax,
 	)
 	if err != nil {
 		return fmt.Errorf("handler: clone batch: %w", err)

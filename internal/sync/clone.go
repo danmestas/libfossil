@@ -24,7 +24,10 @@ type cloneSession struct {
 	seqno       int
 	projectCode string
 	serverCode  string
-	obs         Observer
+	cookie      string // server-issued snapshot bound; echoed every round so the
+	// server can scope its blob query to the rid range that existed when the
+	// clone session opened. See cloneCapPrefix in handler.go.
+	obs Observer
 }
 
 // Clone performs a full repository clone from a remote Fossil server.
@@ -206,6 +209,14 @@ func (cs *cloneSession) buildRequest(cycle int) (*xfer.Message, error) {
 		Values: []string{"22800", "20260315", "120000"},
 	})
 
+	// Cookie carries the server-captured clone snapshot bound. Echoing it back
+	// every round lets the stateless handler enforce a stable upper rid bound
+	// on its batch query, so a hub that is being written to during a clone
+	// session can't keep extending the queue and prevent convergence.
+	if cs.cookie != "" {
+		cards = append(cards, &xfer.CookieCard{Value: cs.cookie})
+	}
+
 	// Clone card — only when seqno > 0 (sequential delivery in progress).
 	// When seqno reaches 0, the server has sent all blobs and the client
 	// switches to gimme-based phantom resolution (matching Fossil xfer.c:2706).
@@ -218,6 +229,16 @@ func (cs *cloneSession) buildRequest(cycle int) (*xfer.Message, error) {
 			Version: version,
 			SeqNo:   cs.seqno,
 		})
+		// CloneSeqNoCard carries the actual pagination cursor server-side
+		// (see TestHandleClonePagination). The CloneCard alone only signals
+		// clone mode; without this card the server's cloneSeq stays 0 every
+		// round and the same blob prefix is re-emitted forever — fine when
+		// a repo fits in one batch, fatal under writing-hub or smallBatch
+		// conditions. Skip on round 0 so the server treats it as a fresh
+		// session (any starting cursor would skip rid <= cs.seqno).
+		if cycle > 0 {
+			cards = append(cards, &xfer.CloneSeqNoCard{SeqNo: cs.seqno})
+		}
 	} else {
 		// Pull mode for phantom resolution after sequential delivery completes.
 		if cs.projectCode != "" && cs.serverCode != "" {
@@ -360,7 +381,7 @@ func (cs *cloneSession) processResponse(msg *xfer.Message) (bool, error) {
 			return false, fmt.Errorf("sync.Clone: server error: %s", c.Message)
 
 		case *xfer.CookieCard:
-			// Ignored during clone.
+			cs.cookie = c.Value
 
 		case *xfer.MessageCard:
 			cs.result.Messages = append(cs.result.Messages, c.Message)

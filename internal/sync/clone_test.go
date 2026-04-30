@@ -599,3 +599,213 @@ func TestCloneViaHandlerMultipleCheckins(t *testing.T) {
 		t.Errorf("event count = %d, want 3", eventCount)
 	}
 }
+
+// siteAlways is a BuggifyChecker that fires only for the named site.
+// External-package counterpart to internal alwaysAtSite in handler_test.go.
+type siteAlways string
+
+func (s siteAlways) Check(site string, _ float64) bool { return string(s) == site }
+
+// TestCloneAgainstWritingHub reproduces issue #17.
+//
+// When cloning a hub that is being written to during the clone session
+// (e.g. autosyncing leaves committing while a new leaf clones the hub),
+// the server's emitCloneBatch issues `WHERE rid > cursor` with no upper
+// bound, so newly-arrived blobs keep extending the queue. The completion
+// signal CloneSeqNoCard{SeqNo:0} never fires while the hub keeps growing,
+// the client's `done && seqno <= 0` gate stays false, and the round loop
+// runs to MaxRounds.
+//
+// We squeeze the per-round batch via the smallBatch Buggify hook so the
+// bug fires deterministically with a single new blob per round; the
+// production trigger is the same shape with a 200-blob default batch.
+//
+// After the fix, the server snapshots max(rid) at the start of the clone
+// session and bounds subsequent batches by it, so the clone converges.
+func TestCloneAgainstWritingHub(t *testing.T) {
+	dir := t.TempDir()
+
+	srcPath := filepath.Join(dir, "source.fossil")
+	srcRepo, err := repo.Create(srcPath, "testuser", simio.CryptoRand{})
+	if err != nil {
+		t.Fatalf("repo.Create: %v", err)
+	}
+	defer srcRepo.Close()
+
+	if _, _, err := manifest.Checkin(srcRepo, manifest.CheckinOpts{
+		Comment: "initial",
+		User:    "testuser",
+		Files:   []manifest.File{{Name: "a.txt", Content: []byte("hello")}},
+	}); err != nil {
+		t.Fatalf("Checkin: %v", err)
+	}
+
+	bug := siteAlways("handler.emitCloneBatch.smallBatch")
+
+	roundCounter := 0
+	transport := &sync.MockTransport{
+		Handler: func(req *xfer.Message) *xfer.Message {
+			// Simulate a hub being written to between clone rounds.
+			payload := []byte(fmt.Sprintf("growth-blob-%d", roundCounter))
+			if _, _, err := blob.Store(srcRepo.DB(), payload); err != nil {
+				t.Fatalf("blob.Store: %v", err)
+			}
+			roundCounter++
+			resp, err := sync.HandleSyncWithOpts(context.Background(), srcRepo, req, sync.HandleOpts{Buggify: bug})
+			if err != nil {
+				t.Fatalf("HandleSync: %v", err)
+			}
+			return resp
+		},
+	}
+
+	clonePath := filepath.Join(dir, "clone.fossil")
+	cloneRepo, result, err := sync.Clone(context.Background(), clonePath, transport, sync.CloneOpts{})
+	if err != nil {
+		t.Fatalf("Clone failed (issue #17 reproduced): %v", err)
+	}
+	defer cloneRepo.Close()
+
+	if result.Rounds >= sync.MaxRounds {
+		t.Errorf("Rounds = %d, hit MaxRounds (%d) — clone did not converge against writing hub", result.Rounds, sync.MaxRounds)
+	}
+
+	// Sanity: clone received at least one blob (the seeded checkin's content).
+	if result.BlobsRecvd < 1 {
+		t.Errorf("BlobsRecvd = %d, want >= 1", result.BlobsRecvd)
+	}
+}
+
+// TestCloneMultiRoundCursor independently exercises the rid-cursor advance
+// across multiple clone rounds. Pre-fix the libfossil clone client only
+// emitted CloneCard (which signals clone mode) and never CloneSeqNoCard
+// (which carries the actual pagination cursor server-side, per the
+// pagination protocol exercised by TestHandleClonePagination). The bug was
+// masked by every existing clone-client test fitting in one batch
+// (DefaultCloneBatchSize=200); smallBatch=1 forces multi-round and would
+// otherwise loop on the same rid prefix until MaxRounds.
+func TestCloneMultiRoundCursor(t *testing.T) {
+	dir := t.TempDir()
+
+	srcPath := filepath.Join(dir, "source.fossil")
+	srcRepo, err := repo.Create(srcPath, "testuser", simio.CryptoRand{})
+	if err != nil {
+		t.Fatalf("repo.Create: %v", err)
+	}
+	defer srcRepo.Close()
+
+	// Three checkins → enough blobs to require several rounds at batchSize=1.
+	for i := 0; i < 3; i++ {
+		if _, _, err := manifest.Checkin(srcRepo, manifest.CheckinOpts{
+			Comment: fmt.Sprintf("checkin %d", i),
+			User:    "testuser",
+			Files:   []manifest.File{{Name: "a.txt", Content: []byte(fmt.Sprintf("v%d", i))}},
+		}); err != nil {
+			t.Fatalf("Checkin %d: %v", i, err)
+		}
+	}
+
+	var srcBlobCount int
+	if err := srcRepo.DB().QueryRow("SELECT COUNT(*) FROM blob WHERE size >= 0").Scan(&srcBlobCount); err != nil {
+		t.Fatalf("count source blobs: %v", err)
+	}
+
+	bug := siteAlways("handler.emitCloneBatch.smallBatch")
+
+	transport := &sync.MockTransport{
+		Handler: func(req *xfer.Message) *xfer.Message {
+			resp, err := sync.HandleSyncWithOpts(context.Background(), srcRepo, req, sync.HandleOpts{Buggify: bug})
+			if err != nil {
+				t.Fatalf("HandleSync: %v", err)
+			}
+			return resp
+		},
+	}
+
+	clonePath := filepath.Join(dir, "clone.fossil")
+	cloneRepo, result, err := sync.Clone(context.Background(), clonePath, transport, sync.CloneOpts{})
+	if err != nil {
+		t.Fatalf("Clone: %v", err)
+	}
+	defer cloneRepo.Close()
+
+	// All distinct blobs delivered, not the same prefix on repeat.
+	if result.BlobsRecvd < srcBlobCount {
+		t.Errorf("BlobsRecvd = %d, want >= %d (source blob count)", result.BlobsRecvd, srcBlobCount)
+	}
+
+	var clonedBlobCount int
+	if err := cloneRepo.DB().QueryRow("SELECT COUNT(*) FROM blob WHERE size >= 0").Scan(&clonedBlobCount); err != nil {
+		t.Fatalf("count cloned blobs: %v", err)
+	}
+	if clonedBlobCount != srcBlobCount {
+		t.Errorf("cloned distinct blobs = %d, want %d", clonedBlobCount, srcBlobCount)
+	}
+}
+
+// TestCloneSnapshotBoundExcludesPostSnapshotWrites verifies the server's
+// snapshot bound semantic: blobs written to the source repo *after* the
+// clone session opens are not included in the clone result. Without this,
+// a clone against a writing hub never reaches the seqno=0 completion
+// signal (issue #17).
+func TestCloneSnapshotBoundExcludesPostSnapshotWrites(t *testing.T) {
+	dir := t.TempDir()
+
+	srcPath := filepath.Join(dir, "source.fossil")
+	srcRepo, err := repo.Create(srcPath, "testuser", simio.CryptoRand{})
+	if err != nil {
+		t.Fatalf("repo.Create: %v", err)
+	}
+	defer srcRepo.Close()
+
+	if _, _, err := manifest.Checkin(srcRepo, manifest.CheckinOpts{
+		Comment: "initial",
+		User:    "testuser",
+		Files:   []manifest.File{{Name: "a.txt", Content: []byte("hello")}},
+	}); err != nil {
+		t.Fatalf("Checkin: %v", err)
+	}
+	var snapshotBlobCount int
+	if err := srcRepo.DB().QueryRow("SELECT COUNT(*) FROM blob WHERE size >= 0").Scan(&snapshotBlobCount); err != nil {
+		t.Fatalf("snapshot count: %v", err)
+	}
+
+	postSnapPayload := []byte("written-after-clone-starts-marker")
+
+	bug := siteAlways("handler.emitCloneBatch.smallBatch")
+
+	roundCounter := 0
+	transport := &sync.MockTransport{
+		Handler: func(req *xfer.Message) *xfer.Message {
+			// Inject a marker write on round 1 (after the snapshot was taken
+			// on round 0). The clone must not pick this up.
+			if roundCounter == 1 {
+				if _, _, err := blob.Store(srcRepo.DB(), postSnapPayload); err != nil {
+					t.Fatalf("blob.Store: %v", err)
+				}
+			}
+			roundCounter++
+			resp, err := sync.HandleSyncWithOpts(context.Background(), srcRepo, req, sync.HandleOpts{Buggify: bug})
+			if err != nil {
+				t.Fatalf("HandleSync: %v", err)
+			}
+			return resp
+		},
+	}
+
+	clonePath := filepath.Join(dir, "clone.fossil")
+	cloneRepo, _, err := sync.Clone(context.Background(), clonePath, transport, sync.CloneOpts{})
+	if err != nil {
+		t.Fatalf("Clone: %v", err)
+	}
+	defer cloneRepo.Close()
+
+	postSnapUUID := hash.SHA1(postSnapPayload)
+	var found int
+	if err := cloneRepo.DB().QueryRow("SELECT COUNT(*) FROM blob WHERE uuid = ?", postSnapUUID).Scan(&found); err != nil {
+		t.Fatalf("query post-snap uuid: %v", err)
+	}
+	if found != 0 {
+		t.Errorf("clone received post-snapshot blob (uuid %s); snapshot bound not enforced", postSnapUUID)
+	}
+}
