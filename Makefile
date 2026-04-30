@@ -49,3 +49,26 @@ docs-build: docs-gen-sdk docs-gen-llms
 
 docs: docs-build
 	@echo "=== docs: built into docs/site/public/ ==="
+
+# CI mirror — must match .github/workflows/test.yml verbatim across all jobs.
+# Note: GOWORK=off is critical; the existing test/test-drivers/test-otel
+# targets do NOT use it but CI does, leading to historical drift. These
+# ci-* targets are the single source of truth going forward.
+.PHONY: ci ci-default ci-ncruces ci-otel-target
+
+ci: ci-default ci-ncruces ci-otel-target
+
+ci-default:
+	GOWORK=off go test $$(GOWORK=off go list ./... | grep -v '/dst') -count=1 -timeout=120s
+	GOWORK=off go test ./dst/... -count=1 -timeout=300s
+	cd db/driver/modernc && GOWORK=off go test ./... -count=1
+	GOWORK=off go vet ./...
+	GOWORK=off go build ./cmd/libfossil/
+
+ci-ncruces:
+	GOWORK=off go test -tags test_ncruces $$(GOWORK=off go list ./... | grep -v '/dst' | grep -v 'cmd/libfossil') -count=1 -timeout=120s
+	GOWORK=off go test -tags test_ncruces ./dst/... -count=1 -timeout=300s
+	cd db/driver/ncruces && GOWORK=off go test ./... -count=1
+
+ci-otel-target:
+	cd observer/otel && GOWORK=off go test ./... -count=1
