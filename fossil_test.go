@@ -3,6 +3,8 @@ package libfossil
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	_ "github.com/danmestas/libfossil/internal/testdriver"
@@ -57,5 +59,75 @@ func TestOpenNotFound(t *testing.T) {
 	_, err := Open("/nonexistent/path.fossil")
 	if err == nil {
 		t.Error("Open on nonexistent path should fail")
+	}
+}
+
+func TestCreate_ProjectCode_Explicit(t *testing.T) {
+	const code = "0123456789abcdef0123456789abcdef01234567"
+	path := filepath.Join(t.TempDir(), "test.fossil")
+
+	r, err := Create(path, CreateOpts{User: "test", ProjectCode: code})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	r2, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer r2.Close()
+	got, err := r2.inner.Config("project-code")
+	if err != nil {
+		t.Fatalf("Config(project-code): %v", err)
+	}
+	if got != code {
+		t.Errorf("project-code = %q, want %q", got, code)
+	}
+}
+
+func TestCreate_ProjectCode_Invalid(t *testing.T) {
+	cases := []struct {
+		name string
+		code string
+	}{
+		{"too short", "deadbeef"},
+		{"uppercase", strings.Repeat("DEADBEEF", 5)},
+		{"non-hex char", strings.Repeat("g", 40)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "test.fossil")
+			_, err := Create(path, CreateOpts{User: "test", ProjectCode: tc.code})
+			if err == nil {
+				t.Fatalf("Create with ProjectCode=%q should fail", tc.code)
+			}
+			if !strings.Contains(err.Error(), "invalid CreateOpts.ProjectCode") {
+				t.Errorf("error %q missing 'invalid CreateOpts.ProjectCode'", err)
+			}
+			if _, statErr := os.Stat(path); statErr == nil {
+				t.Error("repo file should not exist after rejected Create")
+			}
+		})
+	}
+}
+
+func TestCreate_ProjectCode_EmptyGeneratesHex(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.fossil")
+
+	r, err := Create(path, CreateOpts{User: "test"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	defer r.Close()
+
+	code, err := r.inner.Config("project-code")
+	if err != nil {
+		t.Fatalf("Config(project-code): %v", err)
+	}
+	if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(code) {
+		t.Errorf("generated project-code %q does not match ^[0-9a-f]{40}$", code)
 	}
 }
