@@ -68,6 +68,84 @@ func TestCommitAndTimeline(t *testing.T) {
 	}
 }
 
+// TestCommitPreservesParentFiles is the regression for #30: a child
+// commit that supplies only a subset of the parent's tracked files must
+// still produce a full-tree manifest. Before the fix, the child's
+// manifest contained only the supplied subset and a checkout at the
+// child's rev silently lost every file the caller did not re-supply.
+func TestCommitPreservesParentFiles(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.fossil")
+
+	r, err := Create(path, CreateOpts{User: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	parentRID, _, err := r.Commit(CommitOpts{
+		Files: []FileToCommit{
+			{Name: "a.txt", Content: []byte("alpha\n")},
+			{Name: "b.txt", Content: []byte("bravo v1\n")},
+			{Name: "c.txt", Content: []byte("charlie\n")},
+		},
+		Comment: "parent: a, b, c",
+		User:    "test",
+	})
+	if err != nil {
+		t.Fatalf("parent commit: %v", err)
+	}
+
+	childRID, _, err := r.Commit(CommitOpts{
+		ParentID: parentRID,
+		Files: []FileToCommit{
+			{Name: "b.txt", Content: []byte("bravo v2\n")},
+		},
+		Comment: "child: only b modified",
+		User:    "test",
+	})
+	if err != nil {
+		t.Fatalf("child commit: %v", err)
+	}
+
+	files, err := r.ListFiles(childRID)
+	if err != nil {
+		t.Fatalf("ListFiles(child): %v", err)
+	}
+	got := map[string]string{}
+	for _, f := range files {
+		got[f.Name] = f.UUID
+	}
+	if len(got) != 3 {
+		t.Fatalf("child manifest has %d files, want 3 (a.txt, b.txt, c.txt); got %v", len(got), got)
+	}
+	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+		if _, ok := got[name]; !ok {
+			t.Errorf("child manifest missing %q (file tracked at parent was dropped)", name)
+		}
+	}
+
+	// a.txt and c.txt should keep the parent's blob UUIDs (untouched).
+	parentFiles, err := r.ListFiles(parentRID)
+	if err != nil {
+		t.Fatalf("ListFiles(parent): %v", err)
+	}
+	parentUUIDs := map[string]string{}
+	for _, f := range parentFiles {
+		parentUUIDs[f.Name] = f.UUID
+	}
+	if got["a.txt"] != parentUUIDs["a.txt"] {
+		t.Errorf("a.txt UUID changed across commits: parent=%s child=%s", parentUUIDs["a.txt"], got["a.txt"])
+	}
+	if got["c.txt"] != parentUUIDs["c.txt"] {
+		t.Errorf("c.txt UUID changed across commits: parent=%s child=%s", parentUUIDs["c.txt"], got["c.txt"])
+	}
+	// b.txt should have a NEW UUID — caller supplied new content.
+	if got["b.txt"] == parentUUIDs["b.txt"] {
+		t.Errorf("b.txt UUID unchanged despite new content: %s", got["b.txt"])
+	}
+}
+
 func TestListFiles(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.fossil")

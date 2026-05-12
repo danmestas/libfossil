@@ -11,6 +11,12 @@ import (
 
 // CommitOpts configures a commit operation.
 type CommitOpts struct {
+	// Files is the caller-supplied subset of the new commit's tree. When
+	// ParentID is non-zero, Files is MERGED with the parent's tracked files:
+	// any name in Files overrides the parent's entry, and any file tracked
+	// at the parent but not in Files is carried forward into the new manifest.
+	// This matches `fossil ci`'s full-tree semantics — supplying just the
+	// changed files does not erase the rest of the tree.
 	Files    []FileToCommit
 	Comment  string
 	User     string
@@ -23,6 +29,14 @@ type CommitOpts struct {
 	// a secondary plink row (isprim=0).
 	MergeParents []int64
 	Delta        bool
+	// PartialManifest, when true, skips the parent-file merge: the resulting
+	// manifest contains only Files. This is the legacy pre-fix behavior and
+	// effectively erases every file tracked at the parent that is not in
+	// Files. Default false matches `fossil ci`. Set true only when the
+	// caller intentionally wants omission-to-mean-deletion (e.g., tests for
+	// the diff/deletion path); a dedicated deletion API may replace this
+	// escape hatch later.
+	PartialManifest bool
 }
 
 // FileToCommit describes a file to include in a commit.
@@ -58,7 +72,10 @@ type StatusEntry struct {
 }
 
 // Commit creates a new checkin manifest with the given files and returns
-// the RID (row ID) and UUID of the newly created artifact.
+// the RID (row ID) and UUID of the newly created artifact. When ParentID
+// is non-zero, files tracked at the parent but absent from opts.Files are
+// carried forward into the new manifest (full-tree semantics — see the
+// CommitOpts.Files doc).
 func (r *Repo) Commit(opts CommitOpts) (int64, string, error) {
 	files := make([]manifest.File, len(opts.Files))
 	for i, f := range opts.Files {
@@ -67,6 +84,13 @@ func (r *Repo) Commit(opts CommitOpts) (int64, string, error) {
 			Content: f.Content,
 			Perm:    f.Perm,
 		}
+	}
+	if opts.ParentID > 0 && !opts.PartialManifest {
+		merged, err := manifest.MergeParentFiles(r.inner, fsltype.FslID(opts.ParentID), files)
+		if err != nil {
+			return 0, "", fmt.Errorf("libfossil: commit: %w", err)
+		}
+		files = merged
 	}
 	var tagCards []deck.TagCard
 	for _, t := range opts.Tags {

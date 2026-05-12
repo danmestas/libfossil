@@ -64,3 +64,43 @@ func fCardsToEntries(fCards []deck.FileCard) []FileEntry {
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 	return entries
 }
+
+// MergeParentFiles returns supplied with every file tracked at parentRID
+// that is not already in supplied appended. Names in supplied win over the
+// parent's entry; the parent's untouched files have their content expanded
+// from the repo so the resulting slice is a full-tree set ready for Checkin.
+//
+// parentRID == 0 returns supplied unchanged.
+func MergeParentFiles(r *repo.Repo, parentRID libfossil.FslID, supplied []File) ([]File, error) {
+	if parentRID == 0 {
+		return supplied, nil
+	}
+	parentFiles, err := ListFiles(r, parentRID)
+	if err != nil {
+		return nil, fmt.Errorf("manifest.MergeParentFiles: %w", err)
+	}
+	suppliedNames := make(map[string]struct{}, len(supplied))
+	for _, f := range supplied {
+		suppliedNames[f.Name] = struct{}{}
+	}
+	merged := supplied
+	for _, pf := range parentFiles {
+		if _, ok := suppliedNames[pf.Name]; ok {
+			continue
+		}
+		baseRid, ok := blob.Exists(r.DB(), pf.UUID)
+		if !ok {
+			return nil, fmt.Errorf("manifest.MergeParentFiles: blob %s for %s not found", pf.UUID, pf.Name)
+		}
+		data, err := content.Expand(r.DB(), baseRid)
+		if err != nil {
+			return nil, fmt.Errorf("manifest.MergeParentFiles: expand %s: %w", pf.Name, err)
+		}
+		merged = append(merged, File{
+			Name:    pf.Name,
+			Content: data,
+			Perm:    pf.Perm,
+		})
+	}
+	return merged, nil
+}

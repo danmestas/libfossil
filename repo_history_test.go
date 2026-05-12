@@ -113,9 +113,18 @@ func TestDiff_Deletion(t *testing.T) {
 		{Name: "doomed.txt", Content: []byte("goodbye\ncruel world\n")},
 		{Name: "keep.txt", Content: []byte("anchor\n")},
 	})
-	b := commit(t, r, a, "drop doomed", []FileToCommit{
-		{Name: "keep.txt", Content: []byte("anchor\n")},
+	// PartialManifest: true models deletion by omission — only callers
+	// intentionally erasing tracked files should opt in.
+	b, _, err := r.Commit(CommitOpts{
+		ParentID:        a,
+		Files:           []FileToCommit{{Name: "keep.txt", Content: []byte("anchor\n")}},
+		Comment:         "drop doomed",
+		User:            "test",
+		PartialManifest: true,
 	})
+	if err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
 
 	entries, err := r.Diff(a, b, "doomed.txt")
 	if err != nil {
@@ -333,9 +342,17 @@ func TestDiff_WholeCheckin_DeletionOnly(t *testing.T) {
 		{Name: "anchor.txt", Content: []byte("anchor\n")},
 		{Name: "doomed.txt", Content: []byte("goodbye\n")},
 	})
-	b := commit(t, r, a, "drop doomed", []FileToCommit{
-		{Name: "anchor.txt", Content: []byte("anchor\n")},
+	// PartialManifest: true models deletion by omission.
+	b, _, err := r.Commit(CommitOpts{
+		ParentID:        a,
+		Files:           []FileToCommit{{Name: "anchor.txt", Content: []byte("anchor\n")}},
+		Comment:         "drop doomed",
+		User:            "test",
+		PartialManifest: true,
 	})
+	if err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
 
 	entries, err := r.Diff(a, b, "")
 	if err != nil {
